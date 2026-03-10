@@ -829,15 +829,21 @@ export function init({dispatcher, he, lineModel, lineSelectionModel, audioPlayer
                             null
                         }
                     </td>
-                    <td className="ref">
+                    <td className="ref" style={{position: 'relative'}}>
                         {List.head(this.props.cols).visible ?
-                            <extras.RefInfo corpusId={List.head(this.props.cols).n}
-                                    tokenNumber={primaryLang.tokenNumber}
-                                    lineIdx={this.props.lineIdx}
-                                    data={primaryLang.ref}
-                                    refMaxWidth={this.props.refMaxWidth}
-                                    refsDetailClickHandler={this._refsDetailClickHandler}
-                                    emptyRefValPlaceholder={this.props.emptyRefValPlaceholder} /> :
+                            <>
+                                <extras.RefInfo corpusId={List.head(this.props.cols).n}
+                                        tokenNumber={primaryLang.tokenNumber}
+                                        lineIdx={this.props.lineIdx}
+                                        data={primaryLang.ref}
+                                        refMaxWidth={this.props.refMaxWidth}
+                                        refsDetailClickHandler={this._refsDetailClickHandler}
+                                        emptyRefValPlaceholder={this.props.emptyRefValPlaceholder} />
+                                <extras.VideoButton corpusId={List.head(this.props.cols).n}
+                                        tokenNumber={primaryLang.tokenNumber}
+                                        lineIdx={this.props.lineIdx}
+                                        data={primaryLang.ref} />
+                            </> :
                             null}
 
                     </td>
@@ -848,14 +854,18 @@ export function init({dispatcher, he, lineModel, lineSelectionModel, audioPlayer
                     {alignedCorpora.map((alCorp, i) => {
                         if (this.props.cols[i + 1].visible) {
                             return <React.Fragment key={`al-${i}`}>
-                                <td className="ref">
-                                <extras.RefInfo corpusId={this.props.cols[i + 1].n}
-                                        tokenNumber={alCorp.tokenNumber}
-                                        lineIdx={this.props.lineIdx}
-                                        data={alCorp.ref}
-                                        refMaxWidth={this.props.refMaxWidth}
-                                        emptyRefValPlaceholder={this.props.emptyRefValPlaceholder}
-                                        refsDetailClickHandler={this._refsDetailClickHandler} />
+                                <td className="ref" style={{position: 'relative'}}>
+                                    <extras.RefInfo corpusId={this.props.cols[i + 1].n}
+                                            tokenNumber={alCorp.tokenNumber}
+                                            lineIdx={this.props.lineIdx}
+                                            data={alCorp.ref}
+                                            refMaxWidth={this.props.refMaxWidth}
+                                            emptyRefValPlaceholder={this.props.emptyRefValPlaceholder}
+                                            refsDetailClickHandler={this._refsDetailClickHandler} />
+                                    <extras.VideoButton corpusId={this.props.cols[i + 1].n}
+                                            tokenNumber={alCorp.tokenNumber}
+                                            lineIdx={this.props.lineIdx}
+                                            data={alCorp.ref} />
                                 </td>
                                 {alCorp.tokenNumber > -1 ? this._renderText(alCorp, i + 1) :
                                     <td className="note">{`// ${he.translate('concview__translat_not_avail')} //`}</td>

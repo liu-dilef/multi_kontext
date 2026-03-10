@@ -153,7 +153,7 @@ def get_explicit_return_type(req: KRequest) -> Optional[str]:
 
 
 def _is_authorized_to_execute_action(amodel: AbstractPageModel, aprops: ActionProps):
-    return not isinstance(amodel, AbstractUserModel) or aprops.access_level <= 1 or not amodel.user_is_anonymous()
+    return True
 
 
 def http_action(

@@ -261,6 +261,17 @@ export class Actions {
         name: 'CONCORDANCE_REF_RESET_DETAIL'
     };
 
+    static ShowVideoPopup:Action<{
+        videoUrl:string;
+        startSeconds:number|null;
+    }> = {
+        name: 'CONCORDANCE_SHOW_VIDEO_POPUP'
+    };
+
+    static CloseVideoPopup:Action<{}> = {
+        name: 'CONCORDANCE_CLOSE_VIDEO_POPUP'
+    };
+
     static SaveFormSubmit:Action<{}> = {
         name: 'CONCORDANCE_SAVE_FORM_SUBMIT'
     };

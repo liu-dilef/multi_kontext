@@ -239,11 +239,7 @@ export const GlobalStyle = createGlobalStyle`
     /* an optional organization toolbar (contents injected via a plug-in) */
 
     #common-bar {
-        height: 40px;
-        overflow: hidden;
-        background-color: rgba(82, 80, 78, 0.199);
-        color: #000000;
-        width: 100%;
+        display: none;
     }
 
     #common-bar .UserPane {

@@ -213,6 +213,12 @@ export interface ConcordanceModelState {
     textDirectionRTL:boolean;
 
     shareLinkProps:{url:string}|null;
+
+    videoPopupVisible:boolean;
+
+    videoPopupUrl:string|null;
+
+    videoPopupStartSeconds:number|null;
 }
 
 
@@ -300,6 +306,9 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 tokenLinks: List.map(_ => ({}), lineViewProps.CorporaColumns),
                 textDirectionRTL: layoutModel.getConf<boolean>('TextDirectionRTL'),
                 shareLinkProps:null,
+                videoPopupVisible: false,
+                videoPopupUrl: null,
+                videoPopupStartSeconds: null,
                 treatAsSlowQuery: lineViewProps.TreatAsSlowQuery,
                 altCorpus: lineViewProps.AltCorpus
             }
@@ -824,6 +833,30 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                     state.refDetailVisible = false;
                     state.forceScroll = window.scrollY;
                     this.resetLineFocus(state);
+                });
+            }
+        );
+
+        this.addActionHandler(
+            Actions.ShowVideoPopup,
+            action => {
+                this.changeState(state => {
+                    state.videoPopupVisible = true;
+                    state.videoPopupUrl = action.payload.videoUrl;
+                    state.videoPopupStartSeconds = action.payload.startSeconds;
+                    state.forceScroll = window.scrollY;
+                });
+            }
+        );
+
+        this.addActionHandler(
+            Actions.CloseVideoPopup,
+            action => {
+                this.changeState(state => {
+                    state.videoPopupVisible = false;
+                    state.videoPopupUrl = null;
+                    state.videoPopupStartSeconds = null;
+                    state.forceScroll = window.scrollY;
                 });
             }
         );

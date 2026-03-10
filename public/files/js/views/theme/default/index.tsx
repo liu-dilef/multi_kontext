@@ -46,78 +46,78 @@ export const defaultFontFamily = '"Roboto", "Segoe UI", Arial, sans-serif';
 export const monospaceFontFamily = '"Cousine", "Courier New", monospace';
 export const condensedFontFamily = '"Roboto Condensed", "Segoe UI", sans-serif';
 
-export const colorDefaultText = '#010101';
-export const colorDefaultTextBg = '#FFFFFF';
-export const colorLightText = '#8d8c8c';
-export const colorSuperlightText = '#B0B0B0';
-export const colorWhiteText = '#ffffff';
-export const colorDarkGreenText = '#4c5854';
-export const textShadow = '0 0 2px #A0A0A0';
+export const colorDefaultText = '#292524';
+export const colorDefaultTextBg = '#fffbf5';
+export const colorLightText = '#78716c';
+export const colorSuperlightText = '#a8a29e';
+export const colorWhiteText = '#fafaf9';
+export const colorDarkGreenText = '#44403c';
+export const textShadow = '0 0 2px #d6d3d1';
 
 
 // general colors
 
-export const colorSectionBg = '#f3fbed';
+export const colorSectionBg = '#fef7f0';
 
-export const colorDefaultGreen = '#D1ECBF';
-export const colorLightGreen = '#EEF7F1';
-export const colorGreenBgHighlighted = '#F0FDBE';
+export const colorDefaultGreen = '#a0c5ad';
+export const colorLightGreen = '#f0fdf4';
+export const colorGreenBgHighlighted = '#fef3c7';
 export const defaultBgHighlighted = colorGreenBgHighlighted;
 
-export const colorLogoPink = '#E2007A';
-export const colorLightPink = '#FFC8AD';
-export const colorLogoBlue = '#009EE0';
-export const colorLogoGreen = '#53AA28';
-export const colorLogoBlueOpaque = 'RGBA(0, 158, 224, 0.7)';
-export const colorLogoBlueShining = '#00CAF6';
-export const colorWhitelikeBlue = '#e2f4fb';
-export const colorLogoOrange = '#F0680B';
-export const colorBgLightBlue = '#F4FAFC';
-export const colorLightFrame = '#D1ECBF';
-export const colorLockedAttrsBgColor = '#DEE0DD';
-export const colorLightGrey = '#dadada';
-export const colorLinkDark = '#02a';
-export const colorTableEvenBg = '#F2F7EC';
-export const colorFrameFieldset = '#DBE2D9';
-export const colorTableOddRowBg = '#F7FBF3';
-export const colorDataTableFooter = '#DCEDD0';
-export const colorWidgetOrange = '#F76B0B';
-export const colorButtonDefault = '#F0FAFF';
-export const colorButtonHover = '#F9FDFF';
-export const colorErrorInputBg = '#f8b6a6';
+export const colorLogoPink = '#b53e25';
+export const colorLightPink = '#fed7aa';
+export const colorLogoBlue = '#0891b2';
+export const colorLogoGreen = '#84cc16';
+export const colorLogoBlueOpaque = 'RGBA(8, 145, 178, 0.7)';
+export const colorLogoBlueShining = '#06b6d4';
+export const colorWhitelikeBlue = '#ecfeff';
+export const colorLogoOrange = '#ea580c';
+export const colorBgLightBlue = '#cffafe';
+export const colorLightFrame = '#fed7aa';
+export const colorLockedAttrsBgColor = '#e7e5e4';
+export const colorLightGrey = '#d6d3d1';
+export const colorLinkDark = '#c2410c';
+export const colorTableEvenBg = '#fef2e8';
+export const colorFrameFieldset = '#fed7aa';
+export const colorTableOddRowBg = '#fffbf5';
+export const colorDataTableFooter = '#fed7aa';
+export const colorWidgetOrange = '#b53e25';
+export const colorButtonDefault = '#fff7ed';
+export const colorButtonHover = '#ffedd5';
+export const colorErrorInputBg = '#fecaca';
 
-export const colorInputBorder = '#333333';
-export const colorInputBorderDisabled = '#888888';
+export const colorInputBorder = '#57534e';
+export const colorInputBorderDisabled = '#a8a29e';
 
 export const colorHeatmap = [
-    '#ffffff', '#fff7f3',
-    '#fde0dd', '#fcc5c0',
-    '#fa9fb5', '#f768a1',
-    '#dd3497', '#ae017e',
-    '#7a0177', '#49006a'
+    '#fffbf5', '#fff7ed',
+    '#fed7aa', '#fdba74',
+    '#fb923c', '#b53e25',
+    '#ea580c', '#c2410c',
+    '#9a3412', '#7c2d12'
 ];
 
 export const colorCategoricalData = [
-    "#60CFFF", "#8ADCFF",
-    "#94A3FF", "#C1C9FF",
-    "#FFDC84", "#FFEBB8",
-    "#FFB058", "#FFC584",
-    "#FFC584", "#FFC584",
-    "#FFC584", "#e7c6a0",
-    "#d4bda1", "#cfbda8",
-    "#cec1b3"
+    "#b53e25", "#fb923c",
+    "#84cc16", "#a3e635",
+    "#eab308", "#facc15",
+    "#ef4444", "#f87171",
+    "#0891b2", "#06b6d4",
+    "#d946ef", "#e879f9",
+    "#f59e0b", "#fbbf24",
+    "#14b8a6"
 ]
 
-export const shRegexp = '#920040';
+export const shRegexp = '#dc2626';
 export const shAttr = colorLogoPink;
-export const shKeyword = '#48872b';
-export const shOperator = '#bd42ee';
+export const shKeyword = '#65a30d';
+export const shOperator = '#d946ef';
 
 // misc.
 
 export const borderRadiusDefault = '5px';
 export const borderRadiusMenu = '5px 5px 0 0';
-export const portalBoxShadow = '0 0 3px #A0A0A0';
+export const portalBoxShadow = '0 1px 3px 0 rgba(124, 45, 18, 0.1), 0 1px 2px 0 rgba(124, 45, 18, 0.06)';
 export const ucnkTopbarLeftMargin = '30px';
 
 // forms

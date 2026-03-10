@@ -143,6 +143,17 @@ application.config['cookies_same_site'] = settings.get('global', 'cookies_same_s
 application.config['static_files_prefix'] = settings.get(
     'global', 'static_files_prefix', '../files')
 
+# Development-time static files serving
+# In production this is normally handled by nginx (see docker-compose.yml),
+# but when running the app directly via `python public/app.py` we want
+# `/files/...` to serve assets from `public/files`.
+static_prefix = application.config['static_files_prefix']
+if static_prefix and static_prefix.startswith('/'):
+    application.static(
+        static_prefix,
+        os.path.realpath(os.path.join(os.path.dirname(__file__), 'files'))
+    )
+
 application.blueprint(root_bp)
 application.blueprint(conc_bp)
 application.blueprint(user_bp)

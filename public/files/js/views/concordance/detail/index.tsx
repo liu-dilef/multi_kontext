@@ -28,9 +28,82 @@ import { init as initSpeechViews } from './speech.js';
 import { ConcDetailModel, ConcDetailModelState } from '../../../models/concordance/detail.js';
 import { RefsDetailModel, RefsDetailModelState } from '../../../models/concordance/refsDetail.js';
 import { Actions } from '../../../models/concordance/actions.js';
-import { DetailExpandPositions } from '../../../models/concordance/common.js';
+import { DetailExpandPositions, RefsColumn } from '../../../models/concordance/common.js';
 import * as S from './style.js';
 import { AudioPlayerModel } from '../../../models/audioPlayer/model.js';
+
+const YOUTUBE_RE = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/i;
+
+const isYoutubeUrl = (url:string) => YOUTUBE_RE.test(url);
+
+const parseStartSeconds = (raw:string):number|null => {
+    if (!raw) {
+        return null;
+    }
+    const trimmed = raw.trim();
+    if (/^\d+(\.\d+)?$/.test(trimmed)) {
+        return parseFloat(trimmed);
+    }
+    const parts = trimmed.split(':').map(v => parseFloat(v));
+    if (parts.some(v => Number.isNaN(v))) {
+        return null;
+    }
+    // supports hh:mm:ss, mm:ss, or ss
+    return parts.reduce((acc, v) => acc * 60 + v, 0);
+};
+
+const exportYoutubeEmbedUrl = (url:string, startAt?:number|null):string => {
+    if (!isYoutubeUrl(url)) {
+        return url;
+    }
+    const urlObj = new URL(url);
+    const params = new URLSearchParams(urlObj.searchParams);
+    let videoId:string|null = null;
+    if (urlObj.hostname.indexOf('youtu.be') > -1) {
+        const path = urlObj.pathname.replace(/^\//, '');
+        videoId = path || null;
+    } else {
+        videoId = params.get('v');
+        params.delete('v');
+    }
+    params.delete('t');
+    params.delete('start');
+    if (startAt !== undefined && startAt !== null) {
+        params.set('start', Math.max(0, Math.floor(startAt)).toString());
+    }
+    const query = params.toString();
+    return `https://www.youtube.com/embed/${videoId || ''}${query ? `?${query}&autoplay=1` : '?autoplay=1'}`;
+};
+
+const extractVideoInfo = (data:Array<[RefsColumn, RefsColumn]>) => {
+    const cols:RefsColumn[] = pipe(
+        data,
+        List.flatMap(([a, b]) => [a, b].filter(Boolean) as RefsColumn[])
+    );
+
+    const videoUrl = List.find(
+        c => {
+            const n = c.name.toLowerCase();
+            const looksLikeDocUrl = n === 'doc.url' || n === 'url' || (n.indexOf('doc') > -1 && n.indexOf('url') > -1);
+            const looksLikeVideoExt = /\.(mp4|webm|ogg)$/i.test(c.val);
+            return looksLikeDocUrl || looksLikeVideoExt || isYoutubeUrl(c.val);
+        },
+        cols
+    )?.val || null;
+
+    const startSeconds = List.find(
+        c => {
+            const n = c.name.toLowerCase();
+            return n === 'time.start' || n === 'start' || (n.indexOf('time') > -1 && n.indexOf('start') > -1);
+        },
+        cols
+    );
+
+    return {
+        videoUrl,
+        startSeconds: startSeconds ? parseStartSeconds(startSeconds.val) : null
+    };
+};
 
 
 export interface RefDetailProps {
@@ -44,9 +117,16 @@ export interface ConcordanceDetailProps {
 }
 
 
+export interface VideoPopupProps {
+    videoUrl:string;
+    startSeconds:number|null;
+    closeClickHandler:()=>void;
+}
+
 export interface DetailViews {
     RefDetail:React.ComponentClass<RefDetailProps>;
     ConcordanceDetail:React.ComponentClass<ConcordanceDetailProps>;
+    VideoPopup:React.FC<VideoPopupProps>;
 }
 
 
@@ -94,9 +174,25 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
 
     const RefValue:React.FC<{
         val:string;
+        onVideoClick?:(url:string, startSeconds?:number|null)=>void;
+        startSeconds?:number|null;
+        forceVideo?:boolean;
 
     }> = (props) => {
-        if (props.val.indexOf('http://') === 0 || props.val.indexOf('https://') === 0) {
+        const isUrl = props.val.indexOf('http://') === 0 || props.val.indexOf('https://') === 0;
+        const hasVideoExt = /\.(mp4|webm|ogg)$/i.test(props.val);
+        const isVideo = props.forceVideo || (isUrl && (hasVideoExt || isYoutubeUrl(props.val)));
+
+        if (isUrl && isVideo && props.onVideoClick) {
+            const handleClick:React.MouseEventHandler<HTMLAnchorElement> = (evt) => {
+                evt.preventDefault();
+                props.onVideoClick(props.val, props.startSeconds);
+            };
+            return <a className="external video-link" href={props.val} onClick={handleClick}>
+                <layoutViews.Shortener text={props.val} limit={20} />
+            </a>;
+
+        } else if (isUrl) {
             return <a className="external" href={props.val} target="_blank">
                 <layoutViews.Shortener text={props.val} limit={20} />
             </a>;
@@ -111,6 +207,8 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
 
     const RefLine:React.FC<{
         colGroups:Array<{name:string; val:string}>;
+        onVideoClick?:(url:string, startSeconds?:number|null)=>void;
+        videoStartSeconds?:number|null;
 
     }> = (props) => {
 
@@ -119,16 +217,38 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
             const item = props.colGroups;
 
             if (item[0]) {
+                const isDocUrl = (() => {
+                    const n = item[0].name.toLowerCase();
+                    return n === 'doc.url' || n === 'url' || (n.indexOf('doc') > -1 && n.indexOf('url') > -1);
+                })();
                 ans.push(<th key="c1">{item[0].name}</th>);
-                ans.push(<td key="c2" className="data"><RefValue val={item[0].val} /></td>);
+                ans.push(
+                    <td key="c2" className="data">
+                        <RefValue val={item[0].val}
+                                onVideoClick={props.onVideoClick}
+                                startSeconds={props.videoStartSeconds}
+                                forceVideo={isDocUrl} />
+                    </td>
+                );
 
             } else {
                 ans.push(<th key="c1" />);
                 ans.push(<td key="c2" />);
             }
             if (item[1]) {
+                const isDocUrl = (() => {
+                    const n = item[1].name.toLowerCase();
+                    return n === 'doc.url' || n === 'url' || (n.indexOf('doc') > -1 && n.indexOf('url') > -1);
+                })();
                 ans.push(<th key="c3">{item[1].name}</th>);
-                ans.push(<td key="c4" className="data"><RefValue val={item[1].val} /></td>);
+                ans.push(
+                    <td key="c4" className="data">
+                        <RefValue val={item[1].val}
+                                onVideoClick={props.onVideoClick}
+                                startSeconds={props.videoStartSeconds}
+                                forceVideo={isDocUrl} />
+                    </td>
+                );
 
             } else {
                 ans.push(<th key="c3" />);
@@ -144,6 +264,43 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
 
     const RefDetail:React.FC<RefDetailProps & RefsDetailModelState> = (props) => {
 
+        const [activeVideoUrl, setActiveVideoUrl] = React.useState<string|null>(null);
+        const [startAt, setStartAt] = React.useState<number|null>(null);
+        const videoRef = React.useRef<HTMLVideoElement>(null);
+
+        const videoMeta = React.useMemo(() => extractVideoInfo(props.data), [props.data]);
+
+        const handleVideoClick = (url:string, startFromLink?:number|null) => {
+            setActiveVideoUrl(url);
+            const finalStart = startFromLink !== undefined ? startFromLink : videoMeta.startSeconds;
+            setStartAt(finalStart ?? null);
+        };
+
+        React.useEffect(
+            () => {
+                if (videoRef.current && startAt !== null) {
+                    const seek = () => {
+                        try {
+                            videoRef.current.currentTime = startAt;
+                        } catch (e) {
+                            // ignore seek errors (e.g. media not ready)
+                        }
+                    };
+                    if (videoRef.current.readyState >= 1) {
+                        seek();
+                    } else {
+                        const onLoaded = () => {
+                            seek();
+                            videoRef.current.removeEventListener('loadedmetadata', onLoaded);
+                        };
+                        videoRef.current.addEventListener('loadedmetadata', onLoaded);
+                        return () => videoRef.current?.removeEventListener('loadedmetadata', onLoaded);
+                    }
+                }
+            },
+            [activeVideoUrl, startAt]
+        );
+
         const renderContents = () => {
             if (props.isBusy) {
                 return <img src={he.createStaticUrl('img/ajax-loader.gif')} alt={he.translate('global__loading')} />;
@@ -156,7 +313,9 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
                     <table className="full-ref">
                         <tbody>
                             {List.map(
-                                (item, i) => <RefLine key={i} colGroups={item} />,
+                                (item, i) => <RefLine key={i} colGroups={item}
+                                        onVideoClick={handleVideoClick}
+                                        videoStartSeconds={videoMeta.startSeconds} />,
                                 props.data
                             )}
                         </tbody>
@@ -170,6 +329,27 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
                     takeFocus={true}>
                 <S.RefsDetail>
                     {renderContents()}
+                    {activeVideoUrl ?
+                        <div className="video-player-popup">
+                            {isYoutubeUrl(activeVideoUrl) ?
+                                <iframe
+                                    src={exportYoutubeEmbedUrl(activeVideoUrl, startAt)}
+                                    style={{width: '100%', height: '60vh', border: 'none'}}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                /> :
+                                <video
+                                    key={activeVideoUrl}
+                                    ref={videoRef}
+                                    src={activeVideoUrl}
+                                    controls
+                                    autoPlay
+                                    style={{maxWidth: '100%', maxHeight: '60vh'}}
+                                />
+                            }
+                        </div> :
+                        null
+                    }
                 </S.RefsDetail>
             </CustomPopupBox>
         );
@@ -545,9 +725,251 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
 
     const BoundConcordanceDetail = BoundWithProps<ConcordanceDetailProps, ConcDetailModelState>(ConcordanceDetail, concDetailModel);
 
+    // ------------------------- <VideoPopup /> ---------------------------
+
+    const VideoPopup:React.FC<VideoPopupProps> = (props) => {
+        const [size, setSize] = React.useState({width: 640, height: 400});
+        const [position, setPosition] = React.useState({x: 100, y: 100});
+        const [isDragging, setIsDragging] = React.useState(false);
+        const [isResizing, setIsResizing] = React.useState(false);
+        const [dragStart, setDragStart] = React.useState({x: 0, y: 0});
+        const popupRef = React.useRef<HTMLDivElement>(null);
+        const videoRef = React.useRef<HTMLVideoElement>(null);
+        const audioRef = React.useRef<HTMLAudioElement>(null);
+
+        const detectMediaType = (url:string):'youtube'|'video'|'audio' => {
+            try {
+                const urlObj = new URL(url);
+                if (urlObj.hostname.indexOf('youtube.com') > -1 || urlObj.hostname.indexOf('youtu.be') > -1) {
+                    return 'youtube';
+                }
+                const pathname = urlObj.pathname.toLowerCase();
+                const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', '.wma'];
+                const videoExtensions = ['.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv', '.m4v'];
+                
+                if (audioExtensions.some(ext => pathname.endsWith(ext))) {
+                    return 'audio';
+                }
+                if (videoExtensions.some(ext => pathname.endsWith(ext))) {
+                    return 'video';
+                }
+            } catch (e) {
+                console.error('Error detecting media type:', e);
+            }
+            return 'video';
+        };
+
+        const mediaType = detectMediaType(props.videoUrl);
+
+        const exportYoutubeEmbedUrl = (url:string, startAt?:number|null):string => {
+            const urlObj = new URL(url);
+            const params = new URLSearchParams(urlObj.searchParams);
+            let videoId:string|null = null;
+            if (urlObj.hostname.indexOf('youtu.be') > -1) {
+                const path = urlObj.pathname.replace(/^\//, '');
+                videoId = path || null;
+            } else {
+                videoId = params.get('v');
+                params.delete('v');
+            }
+            params.delete('t');
+            params.delete('start');
+            if (startAt !== undefined && startAt !== null) {
+                params.set('start', Math.max(0, Math.floor(startAt)).toString());
+            }
+            const query = params.toString();
+            return `https://www.youtube.com/embed/${videoId || ''}${query ? `?${query}&autoplay=1` : '?autoplay=1'}`;
+        };
+
+        const handleMouseDown = (e:React.MouseEvent) => {
+            if ((e.target as HTMLElement).classList.contains('video-popup-header')) {
+                setIsDragging(true);
+                setDragStart({x: e.clientX - position.x, y: e.clientY - position.y});
+                e.preventDefault();
+            }
+        };
+
+        const handleResizeMouseDown = (e:React.MouseEvent) => {
+            setIsResizing(true);
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
+        React.useEffect(() => {
+            if (props.startSeconds !== null && props.startSeconds !== undefined) {
+                if (mediaType === 'video' && videoRef.current) {
+                    videoRef.current.currentTime = props.startSeconds;
+                } else if (mediaType === 'audio' && audioRef.current) {
+                    audioRef.current.currentTime = props.startSeconds;
+                }
+            }
+        }, [props.startSeconds, mediaType]);
+
+        React.useEffect(() => {
+            const handleMouseMove = (e:MouseEvent) => {
+                if (isDragging) {
+                    setPosition({
+                        x: e.clientX - dragStart.x,
+                        y: e.clientY - dragStart.y
+                    });
+                } else if (isResizing && popupRef.current) {
+                    const rect = popupRef.current.getBoundingClientRect();
+                    const newWidth = Math.max(400, e.clientX - rect.left);
+                    const newHeight = Math.max(mediaType === 'audio' ? 150 : 300, e.clientY - rect.top);
+                    setSize({width: newWidth, height: newHeight});
+                }
+            };
+
+            const handleMouseUp = () => {
+                setIsDragging(false);
+                setIsResizing(false);
+            };
+
+            if (isDragging || isResizing) {
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+                return () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                };
+            }
+        }, [isDragging, isResizing, dragStart, mediaType]);
+
+        const renderMediaContent = () => {
+            if (mediaType === 'youtube') {
+                return (
+                    <iframe
+                        src={exportYoutubeEmbedUrl(props.videoUrl, props.startSeconds)}
+                        style={{width: '100%', height: '100%', border: 'none'}}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                    />
+                );
+            } else if (mediaType === 'video') {
+                return (
+                    <video
+                        ref={videoRef}
+                        src={props.videoUrl}
+                        controls
+                        autoPlay
+                        style={{width: '100%', height: '100%', backgroundColor: '#000'}}
+                    >
+                        Your browser does not support the video element.
+                    </video>
+                );
+            } else {
+                return (
+                    <audio
+                        ref={audioRef}
+                        src={props.videoUrl}
+                        controls
+                        autoPlay
+                        style={{width: '100%', marginTop: '1em'}}
+                    >
+                        Your browser does not support the audio element.
+                    </audio>
+                );
+            }
+        };
+
+        return (
+            <div
+                ref={popupRef}
+                style={{
+                    position: 'fixed',
+                    left: `${position.x}px`,
+                    top: `${position.y}px`,
+                    width: `${size.width}px`,
+                    height: mediaType === 'audio' ? 'auto' : `${size.height}px`,
+                    backgroundColor: '#f7f9fc',
+                    border: '1px solid #e2eaea',
+                    boxShadow: '5px 5px 7px #aaa',
+                    borderRadius: '5px',
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    padding: '1.4em'
+                }}
+            >
+                <div
+                    className="video-popup-header"
+                    onMouseDown={handleMouseDown}
+                    style={{
+                        position: 'relative',
+                        paddingBottom: '0.4em',
+                        cursor: 'move',
+                        userSelect: 'none',
+                        marginBottom: '0.7em'
+                    }}
+                >
+                    <button
+                        onClick={props.closeClickHandler}
+                        style={{
+                            display: 'block',
+                            position: 'absolute',
+                            padding: '0.1em',
+                            margin: 0,
+                            width: '1em',
+                            height: '1em',
+                            top: '-1em',
+                            right: '-1em',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                            fontSize: '1em',
+                            backgroundImage: `url(${he.createStaticUrl('img/close-icon.svg')})`,
+                            backgroundSize: '1em 1em',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: '0.1em 0.1em',
+                            boxSizing: 'content-box'
+                        }}
+                        title="Close"
+                    />
+                    <div
+                        onMouseDown={(e) => {
+                            setIsDragging(true);
+                            setDragStart({x: e.clientX - position.x, y: e.clientY - position.y});
+                            e.preventDefault();
+                        }}
+                        style={{
+                            position: 'absolute',
+                            left: '-1em',
+                            top: '-1em',
+                            padding: '0.1em',
+                            width: '1em',
+                            height: '1em',
+                            backgroundImage: `url(${he.createStaticUrl('img/movable.svg')})`,
+                            backgroundSize: '100% 100%',
+                            backgroundRepeat: 'no-repeat',
+                            cursor: 'move'
+                        }}
+                    />
+                </div>
+                <div style={{flex: mediaType === 'audio' ? 0 : 1, position: 'relative', minHeight: 0}}>
+                    {renderMediaContent()}
+                </div>
+                {mediaType !== 'audio' && (
+                    <div
+                        onMouseDown={handleResizeMouseDown}
+                        style={{
+                            position: 'absolute',
+                            right: '0.3em',
+                            bottom: '0.3em',
+                            width: '16px',
+                            height: '16px',
+                            cursor: 'nwse-resize',
+                            background: 'linear-gradient(135deg, transparent 50%, #999 50%)'
+                        }}
+                    />
+                )}
+            </div>
+        );
+    };
 
     return {
         RefDetail: BoundRefDetail,
-        ConcordanceDetail: BoundConcordanceDetail
+        ConcordanceDetail: BoundConcordanceDetail,
+        VideoPopup
     };
 }

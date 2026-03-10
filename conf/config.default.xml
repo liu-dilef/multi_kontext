@@ -70,6 +70,7 @@
         <conc_dir>/var/local/corpora/conc</conc_dir>
         <default_corpora>
             <item>susanne</item>
+            <item>impaqts</item>
             <!-- item>insert_your_default_corpus_here</item -->
         </default_corpora>
         <speech_files_path/>

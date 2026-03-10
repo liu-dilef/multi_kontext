@@ -27,9 +27,10 @@ import { ConcordanceModel } from '../../../models/concordance/main.js';
 import { ConcLinesStorage } from '../../../models/concordance/selectionStorage.js';
 import { init as initMediaViews } from '../../audioPlayer/index.js';
 import { Actions } from '../../../models/concordance/actions.js';
-import { LineSelectionModes, TextChunk } from '../../../models/concordance/common.js';
+import { LineSelectionModes, TextChunk, FullRef } from '../../../models/concordance/common.js';
 import * as S from './style.js';
 import { AudioPlayerModel } from '../../../models/audioPlayer/model.js';
+import { HTTP } from 'cnc-tskit';
 
 
 export interface LineExtrasViews {
@@ -63,6 +64,13 @@ export interface LineExtrasViews {
         refMaxWidth:number;
         emptyRefValPlaceholder:string;
         refsDetailClickHandler:(corpusId:string, tokNum:number, lineIdx:number)=>void;
+    }>;
+
+    VideoButton:React.FC<{
+        corpusId:string;
+        tokenNumber:number;
+        lineIdx:number;
+        data:Array<string>;
     }>;
 }
 
@@ -324,11 +332,108 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
     };
 
 
+    // ------------------------- <VideoButton /> ---------------------
+
+    const VideoButton:LineExtrasViews['VideoButton'] = (props) => {
+        const [videoUrl, setVideoUrl] = React.useState<string|null>(null);
+        const [startSeconds, setStartSeconds] = React.useState<number|null>(null);
+        const [isLoading, setIsLoading] = React.useState(true);
+
+        const parseStartSeconds = (raw:string):number|null => {
+            if (!raw) {
+                return null;
+            }
+            const trimmed = raw.trim();
+            if (/^\d+(\.\d+)?$/.test(trimmed)) {
+                return parseFloat(trimmed);
+            }
+            const parts = trimmed.split(':').map(v => parseFloat(v));
+            if (parts.some(v => Number.isNaN(v))) {
+                return null;
+            }
+            return parts.reduce((acc, v) => acc * 60 + v, 0);
+        };
+
+        React.useEffect(() => {
+            const fetchVideoInfo = async () => {
+                setIsLoading(true);
+                try {
+                    const url = he.createActionLink('fullref', {corpname: props.corpusId, pos: props.tokenNumber});
+                    const response = await fetch(url);
+                    const data:FullRef = await response.json();
+
+                    if (data.Refs) {
+                        const docUrlRef = data.Refs.find(ref => {
+                            const n = ref.name.toLowerCase();
+                            return n === 'doc.url' || n === 'url';
+                        });
+
+                        const timeStartRef = data.Refs.find(ref => {
+                            const n = ref.name.toLowerCase();
+                            return n === 'time.start' || n === 'start';
+                        });
+
+                        if (docUrlRef && docUrlRef.val) {
+                            const urlVal = docUrlRef.val;
+                            const isYoutube = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/i.test(urlVal);
+                            
+                            if (isYoutube) {
+                                setVideoUrl(urlVal);
+                                
+                                if (timeStartRef && timeStartRef.val) {
+                                    const seconds = parseStartSeconds(timeStartRef.val);
+                                    setStartSeconds(seconds);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error fetching video info:', err);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            fetchVideoInfo();
+        }, [props.corpusId, props.tokenNumber]);
+
+        const handleClick = () => {
+            if (videoUrl) {
+                dispatcher.dispatch<typeof Actions.ShowVideoPopup>({
+                    name: Actions.ShowVideoPopup.name,
+                    payload: {
+                        videoUrl,
+                        startSeconds
+                    }
+                });
+            }
+        };
+
+        if (isLoading || !videoUrl) {
+            return null;
+        }
+
+        return (
+            <a onClick={handleClick} 
+               title="Click to play video"
+               style={{
+                   cursor: 'pointer',
+                   position: 'absolute',
+                   right: '0.3em',
+                   top: '50%',
+                   transform: 'translateY(-50%)'
+               }}>
+                ▶
+            </a>
+        );
+    };
+
     return {
         AudioLink,
         TdLineSelection,
         SyntaxTreeButton,
-        RefInfo
+        RefInfo,
+        VideoButton
     };
 
  }

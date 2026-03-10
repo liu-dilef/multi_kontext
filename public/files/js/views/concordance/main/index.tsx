@@ -708,6 +708,12 @@ export function init({
             });
         };
 
+        const handleVideoPopupCloseClick = () => {
+            dispatcher.dispatch<typeof Actions.CloseVideoPopup>({
+                name: Actions.CloseVideoPopup.name
+            });
+        };
+
         const alignNonMatchingAttrs = () => {
             return pipe(
                 props.mergedAttrs,
@@ -732,6 +738,12 @@ export function init({
                     : null}
                 {props.refDetailVisible ?
                     <concDetailViews.RefDetail closeClickHandler={handleRefsDetailCloseClick} />
+                    : null}
+                {props.videoPopupVisible && props.videoPopupUrl ?
+                    <concDetailViews.VideoPopup 
+                        videoUrl={props.videoPopupUrl}
+                        startSeconds={props.videoPopupStartSeconds}
+                        closeClickHandler={handleVideoPopupCloseClick} />
                     : null}
                 <S.ConcTopBar>
                     <div className="info-level">

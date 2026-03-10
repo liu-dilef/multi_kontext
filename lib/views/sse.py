@@ -40,7 +40,7 @@ MAX_STREAMING_ITERATIONS = 1000
 
 
 def _is_authorized_to_execute_action(amodel: AbstractPageModel, aprops: ActionProps):
-    return not isinstance(amodel, AbstractUserModel) or aprops.access_level <= 1 or not amodel.user_is_anonymous()
+    return True
 
 
 async def _init_action_model(req: Request, action_model: Type[T], access_level: int) -> T:
