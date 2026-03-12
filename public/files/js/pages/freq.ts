@@ -305,12 +305,12 @@ class FreqPage {
         );
     }
 
-    setDownloadLink(name:string, format:string, urlConstructor:(taskId:string) => string, args?:any) {
+    setDownloadLink(name:string, format:string, url:string, args?:any) {
         this.layoutModel.bgDownload({
             name,
             format,
             datasetType: DownloadType.FREQ,
-            urlConstructor,
+            url,
             contentType: 'text/plain',
             args,
         }).subscribe();

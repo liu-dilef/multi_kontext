@@ -40,24 +40,6 @@ export interface PublishLineSelectionPayload {
     mode:LineSelectionModes;
 }
 
-export interface ReloadConcArgs {
-    concId:string;
-    viewMode?:ConcViewMode;
-    isPopState?:boolean;
-}
-
-export interface FullReloadConcArgs extends ReloadConcArgs {
-    arf:number;
-    concSize:number;
-    fullSize:number;
-    corpusIpm:number;
-    queryChainSize:number;
-}
-
-export function isFullReloadConcArgs(args:ReloadConcArgs):args is FullReloadConcArgs {
-    return args['concSize'] !== undefined;
-}
-
 
 export class Actions {
 
@@ -118,7 +100,16 @@ export class Actions {
     /**
      * defines a reload of an already known operation
      */
-    static ReloadConc:Action<ReloadConcArgs|FullReloadConcArgs> = {
+    static ReloadConc:Action<{
+        concId:string;
+        arf:number;
+        concSize:number;
+        fullSize:number;
+        corpusIpm:number;
+        queryChainSize:number;
+        isPopState?:boolean;
+        viewMode?:ConcViewMode;
+    }> = {
         name: 'CONCORDANCE_RELOAD_CONC'
     };
 
@@ -268,6 +259,17 @@ export class Actions {
 
     static RefResetDetail:Action<{}> = {
         name: 'CONCORDANCE_REF_RESET_DETAIL'
+    };
+
+    static ShowVideoPopup:Action<{
+        videoUrl:string;
+        startSeconds:number|null;
+    }> = {
+        name: 'CONCORDANCE_SHOW_VIDEO_POPUP'
+    };
+
+    static CloseVideoPopup:Action<{}> = {
+        name: 'CONCORDANCE_CLOSE_VIDEO_POPUP'
     };
 
     static SaveFormSubmit:Action<{}> = {

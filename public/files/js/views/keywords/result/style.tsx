@@ -73,26 +73,6 @@ export const KeywordsResult = styled.form`
         margin-top: 0.4em;
         margin-bottom: 3.5em;
     }
-
-    .din-waring {
-        display: flex;
-        align-items: flex-start;
-        margin-top: 1em;
-        margin-left: 1em;
-        max-width: 70em;
-
-        p {
-            margin-top: 0;
-        }
-
-        .icon-box {
-            margin-right: 1em;
-        }
-
-        .text {
-            flex-grow: 1;
-        }
-    }
 `;
 
 // ------------------- <PaginatorWrapper /> -------------

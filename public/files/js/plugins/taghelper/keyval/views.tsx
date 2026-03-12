@@ -1,505 +1,224 @@
-/*
- * Copyright (c) 2020 Charles University, Faculty of Arts,
- *                    Department of Linguistics
- * Copyright (c) 2020 Tomas Machalek <tomas.machalek@gmail.com>
- * Copyright (c) 2020 Martin Zimandl <martin.zimandl@gmail.com>
-
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; version 2
- * dated June, 1991.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
-
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
-
 import * as React from 'react';
-import { IActionDispatcher, useModel } from 'kombo';
-import { List, pipe, Dict, tuple } from 'cnc-tskit';
+import { IActionDispatcher } from 'kombo';
+import { List, pipe, Dict } from 'cnc-tskit';
 
-import { selectableValIsVisible, SelectableValue, TagsetStatus, UDTagBuilderModel } from './models.js';
+import { FilterRecord, UDTagBuilderModelState } from './models.js';
 import * as Kontext from '../../../types/kontext.js';
 import { Actions } from '../actions.js';
-import { Actions as QueryActions } from '../../../models/query/actions.js';
 
 import * as S from '../style.js';
 
 
-export function init(
-    dispatcher:IActionDispatcher,
-    ut:Kontext.ComponentHelpers,
-    model:UDTagBuilderModel,
-):React.FC<{sourceId:string; formType:Kontext.ConcFormTypes}> {
+export function init(dispatcher:IActionDispatcher, ut:Kontext.ComponentHelpers):React.FC<UDTagBuilderModelState & {sourceId:string}> {
 
-    const layoutViews = ut.getLayoutViews();
+    // --------------------------- <CategoryDetail /> ------------------------------
 
-    // --------------------------- <AttrFilter /> ---------------------------
-
-    const AttrFilter:React.FC<{
-        sourceId:string;
-        name:string;
-        value:string;
-        filterPlaceholder:string;
-
-    }> = ({sourceId, name, value, filterPlaceholder}) => {
-
-        const handleInput = (evt:React.ChangeEvent<HTMLInputElement>) => {
-            dispatcher.dispatch(
-                Actions.KVSetAttrFilter,
-                {
-                    sourceId,
-                    attr: name,
-                    value: evt.target.value
-                }
-            );
-        };
-
-        return (
-            <S.AttrFilter>
-                <span className="icon">
-                    <img src={ut.createStaticUrl('img/search.svg')} alt="magnifying glass" />
-                </span>
-                <input type="text" placeholder={filterPlaceholder} value={value} onChange={handleInput} />
-            </S.AttrFilter>
-        );
-    };
-
-    // --------------------------- <AttrSelection /> ------------------------------
-
-    const AttrSelection:React.FC<{
-        allValues:Array<SelectableValue>;
-        sourceId:string;
-        name:string;
-        filterValue:string;
+    const CategoryDetail:React.FunctionComponent<{
+        allValues:Array<string>;
+        availableValues:Array<string>;
         onChangeHandler:(event) => void;
         categoryName:string;
+        filterFeatures:Array<FilterRecord>;
     }> = (props) => {
+        const categoryFilterRecord = new FilterRecord(props.categoryName, null);
         const checkboxes = pipe(
             props.allValues,
-            List.sorted((v1, v2) => v1.value.localeCompare(v2.value)),
-            List.filter(v => selectableValIsVisible(v)),
-            List.map(value => (
-                <li key={value.value} className={value.selected ? 'selected' : null}>
-                <label className={value.available === 'locked' && !value.selected ? 'locked' : null}>
+            List.sorted((v1, v2) => v1.localeCompare(v2)),
+            List.map(value => {
+                const filterRecord = categoryFilterRecord.setValue(value);
+                return <li key={value}>
                     <input
-                        onChange={value.available === 'locked' ? undefined : props.onChangeHandler}
-                        readOnly={value.available === 'locked'}
+                        onChange={props.onChangeHandler}
                         type="checkbox"
                         id={props.categoryName + '-' + value}
                         name={props.categoryName}
-                        value={value.value}
-                        checked={value.selected}
-                        disabled={!value.available} />
-                    {value.value}
-                    </label>
+                        value={value}
+                        checked={List.some(x => x.equals(filterRecord), props.filterFeatures)}
+                        disabled={!List.some(x => x === value, props.availableValues)} />
+                    <label htmlFor={props.categoryName + '-' + value}>{value}</label>
                 </li>
-            ))
+            })
         );
-        return (
-            <S.AttrSelection>
-                <AttrFilter name={props.name} value={props.filterValue} sourceId={props.sourceId}
-                        filterPlaceholder={ut.translate('taghelper__filter_attr_placeholder')} />
-                <ul>{checkboxes}</ul>
-            </S.AttrSelection>
-        );
+        return <S.PositionList>{checkboxes}</S.PositionList>;
     }
 
+    // --------------------------- <CategorySelect /> ------------------------------
 
-    // ------------------------- <UDFeatExpLabel /> -------------------------
+    const CategorySelect:React.FunctionComponent<{
+        selectedCategory:string;
+        allFeatures:{[key:string]:Array<string>};
+        availableFeatures:{[key:string]:Array<string>};
+        onSelectCategoryHandler:(event) => void;
 
-    const UDFeatExpLabel:React.FC<{
-        sourceId:string;
-        tagsetId:string;
-        value:string;
-        numAvail:number;
-        expanded:boolean;
-
-    }>  = (props) => {
-
-        const handleFeatToggle = () => {
-            dispatcher.dispatch<typeof Actions.KVToggleUDFeat>({
-                name: Actions.KVToggleUDFeat.name,
-                payload: {
-                    sourceId: props.sourceId,
-                    tagsetId: props.tagsetId,
-                    value: props.value
-                }
-            });
-        };
-
-        const img = ut.createStaticUrl(props.expanded ? 'img/collapse.svg' : 'img/expand.svg');
-
-        return (
-            <S.UDFeatExpLabel>
-                <a onClick={handleFeatToggle}>
-                    <span className="img-wrapper">
-                        <layoutViews.ImgWithMouseover src={img} src2={img} alt="expand/collapse" />
-                    </span>
-                    <span className="label">{props.value}</span>
-                </a>
-                <span className="info">[<span className="num">{props.numAvail}</span>]</span>
-            </S.UDFeatExpLabel>
-        );
-    }
-
-    // --------------------------- <UDSelection /> ------------------------------
-
-    const UDSelection:React.FC<{
-        udFeats:{[prop:string]:Array<SelectableValue>};
-        sourceId:string;
-        tagsetId:string;
-        expandedFeat:string;
-        filterValue:string;
-        onChangeHandler:(event) => void;
     }> = (props) => {
-
-
-        const checkboxes = pipe(
-            props.udFeats,
-            Dict.toEntries(),
-            List.sorted(
-                ([name1, ], [name2,]) => name1.localeCompare(name2)
-            ),
-            List.map(
-                ([name, values], i) => (
-                    List.some(v => selectableValIsVisible(v), values) ?
-                        <li key={`${name}:${i}`}>
-                            <UDFeatExpLabel
-                                sourceId={props.sourceId}
-                                tagsetId={props.tagsetId}
-                                expanded={props.expandedFeat === name}
-                                value={name}
-                                numAvail={pipe(
-                                    values,
-                                    List.filter(v => selectableValIsVisible(v)),
-                                    List.size()
-                                )}
-                                />
-                            {props.expandedFeat === name ?
-                                <ul className="subcat">
-                                    {pipe(
-                                        values,
-                                        List.filter(
-                                            v => selectableValIsVisible(v)
-                                        ),
-                                        List.map(
-                                            (v, i) => (
-                                                <li key={`${v.value}:${i}`} className={v.selected ? 'selected' : null}>
-                                                    <label className={v.available === 'locked' && !v.selected ? 'locked' : null}>
-                                                        <input type="checkbox"
-                                                            checked={v.selected}
-                                                            readOnly={v.available === 'locked'}
-                                                            onChange={v.available === 'locked' ? undefined : props.onChangeHandler}
-                                                            name={name}
-                                                            value={v.value} />
-                                                        {v.value}
-                                                    </label>
-                                                </li>
-                                            )
-                                        )
-                                    )}
-                                </ul> :
-                                null
-                            }
-                        </li> :
-                        null
-                )
-            )
+        const categories = pipe(
+            props.allFeatures,
+            Dict.keys(),
+            List.sorted((v1, v2) => v1.localeCompare(v2)),
+            List.map(category => {
+                const availableValuesCount = Dict.hasKey(category, props.availableFeatures) ?
+                    props.availableFeatures[category].length : 0;
+                return <option key={category} value={category} disabled={availableValuesCount === 0}>
+                        {category + " (" + availableValuesCount + ")"}
+                    </option>;
+            })
         );
-        return (
-            <S.UDSelection>
-                <AttrFilter name="ud" value={props.filterValue} sourceId={props.sourceId}
-                        filterPlaceholder={ut.translate('taghelper__filter_ud_feat_placeholder')} />
-                <ul>{checkboxes}</ul>
-            </S.UDSelection>
-        );
+        return <select multiple size={20} onChange={props.onSelectCategoryHandler}
+                        value={[props.selectedCategory]}>{categories}</select>;
     }
 
     // --------------------- <QueryLineCategory /> ----------------------------------------
 
     const QueryLineCategory:React.FunctionComponent<{
         categoryName:string;
-        filterFeaturesCategory:Array<[string, SelectableValue]>;
-        handleRemoveFilter:(evt:React.MouseEvent<HTMLButtonElement>) => void;
+        filterFeaturesCategory:Array<FilterRecord>;
+        handleRemoveFilter:(event) => void;
     }> = (props) => {
         const buttonGroup = pipe(
             props.filterFeaturesCategory,
-            List.sorted(([attName1,], [attName2,]) => attName1.localeCompare(attName2)),
-            List.map(([attName, filter]) => (
-                <li key={`${attName}:${filter.value}`} className="item">
+            List.sorted((f1, f2) => f1.name.localeCompare(f2.name)),
+            List.map(filter => (
+                <li key={filter.composeString()} className="item">
                     <span>{filter.value}</span>
-                    <button name={attName} type="button" value={filter.value}
+                    <button name={filter.name} type="button" value={filter.value}
                             onClick={props.handleRemoveFilter} className="query-close">{'\u00D7'}</button>
                 </li>
             ))
         );
         return (
-            <>
             <li className = "query-button-group">
                 {props.categoryName + ' = '}
+                <ul key="cat-name">
+                    {buttonGroup}
+                </ul>
             </li>
-            {buttonGroup}
-            </>
         );
     }
 
-    // ------------------------ <QueryBox /> --------------------------------------------
+    // ------------------------ <QueryExpression /> --------------------------------------------
 
-    const QueryBox:React.FunctionComponent<{
-        data:TagsetStatus;
-        handleRemoveFilter:(isUdFeat:boolean) => (evt:React.MouseEvent<HTMLButtonElement>) => void;
+    const QueryExpression:React.FunctionComponent<{
+        filterFeatures:Array<FilterRecord>;
+        handleRemoveFilter:(event) => void;
     }> = (props) => {
         const selected = pipe(
-            [
-                ...pipe(
-                    props.data.allAttrs,
-                    Dict.toEntries(),
-                    List.map(
-                        ([k, v]) => tuple(k, v, false)
-                    )
-                ),
-                ...pipe(
-                    props.data.allUdFeats,
-                    Dict.toEntries(),
-                    List.map(
-                        ([k, v]) => tuple(k, v, true)
-                    )
-                )
-            ],
-            List.map(v => v),
-            List.filter(([,v,]) => List.some(x => x.selected, v)),
-            List.sorted(([key1,,], [key2,,]) => key1.localeCompare(key2)),
-            List.map(
-                ([key, recList, isUdFeat], i) => (
-                    <React.Fragment key={`emp:${key}`}>
-                        {i > 0 ? <li className="query-button-group amp">{'&'}</li> : null}
-                        <QueryLineCategory
-                            categoryName={key}
-                            filterFeaturesCategory={pipe(
-                                recList,
-                                List.filter(v => v.selected),
-                                List.map(v => [key, v])
-                            )}
-                            handleRemoveFilter={props.handleRemoveFilter(isUdFeat)} />
-                    </React.Fragment>
-                )
+            props.filterFeatures,
+            List.groupBy(item => item.name),
+            List.sorted(([key1,], [key2,]) => key1.localeCompare(key2)),
+            List.foldl(
+                (acc, [key, recList]) => {
+                    acc.push((
+                        <React.Fragment key={`emp:${key}`}>
+                            {acc.length ? <li className="query-button-group amp">{'&'}</li> : null}
+                            <QueryLineCategory
+                                categoryName={key}
+                                filterFeaturesCategory={recList}
+                                handleRemoveFilter={props.handleRemoveFilter} />
+                        </React.Fragment>
+                    ));
+                    return acc;
+                },
+                []
             )
         );
         return (
-            <S.QueryBox>
-                <h3>{ut.translate('taghelper__selected_features_label')}:</h3>
-                <div className="expression">
-                    {selected.length > 0 ? <S.QueryLine>{selected}</S.QueryLine> : null}
-                </div>
-            </S.QueryBox>
+            <S.QueryExpression>
+                {selected.length > 0 ? <S.QueryLine>{selected}</S.QueryLine> : null}
+            </S.QueryExpression>
         );
-    };
-
-    // ---------------------------- <AttrLockStatus /> ------------------------------------
-
-    const AttrLockStatus:React.FC<{
-        locked:boolean;
-    }> = ({locked}) => {
-        return (
-            <S.AttrLockStatus>
-                {locked ?
-                    <img src={ut.createStaticUrl('img/locked.svg')} alt="locked" /> :
-                    <img src={ut.createStaticUrl('img/unlocked.svg')} alt="unlocked" />
-                }
-            </S.AttrLockStatus>
-        )
-    };
+    }
 
     // ---------------------------- <FeatureSelect /> ---------------------------------
 
-    const FeatureSelect:React.FC<{sourceId: string; formType:Kontext.ConcFormTypes}> = (props) => {
+    const FeatureSelect:React.FC<UDTagBuilderModelState & {sourceId: string}> = (props) => {
 
-        const state = useModel(model);
-        const data = state.data[props.sourceId];
-
-        const handleCheckboxChange = (isUdFeat:boolean) => (event:React.ChangeEvent<HTMLInputElement>) => {
+        const handleCheckboxChange = (event) => {
             if (event.target.checked) {
                 dispatcher.dispatch<typeof Actions.KVAddFilter>({
                     name: Actions.KVAddFilter.name,
                     payload: {
-                        tagsetId: state.tagsetInfo.ident,
+                        tagsetId: props.tagsetInfo.ident,
                         sourceId: props.sourceId,
                         name: event.target.name,
-                        value: event.target.value,
-                        isUdFeat
+                        value: event.target.value
                     }
                 });
 
             } else {
-                dispatcher.dispatch<typeof Actions.KVRemoveFilter>({
-                    name: Actions.KVRemoveFilter.name,
-                    payload: {
-                        tagsetId: state.tagsetInfo.ident,
-                        sourceId: props.sourceId,
-                        name: event.currentTarget.name,
-                        value: event.currentTarget.value,
-                        isUdFeat
-                    }
-                });
+                handleRemoveFilter(event);
             }
         };
 
-        const handleInsertButton = () => {
-            dispatcher.dispatch(
-                QueryActions.QueryInputSetQuery,
-                {
-                    formType: props.formType,
-                    sourceId: props.sourceId,
-                    insertRange: [-1, -1],
-                    query: data.generatedQuery
-                }
-            );
-            dispatcher.dispatch(
-                QueryActions.SetActiveInputWidget,
-                {
-                    sourceId: props.sourceId,
-                    formType: props.formType,
-                    currQuery: '',
-                    value: null,
-                    appliedQueryRange: null
-                }
-            );
-        }
-
-        const handleRemoveFilter = (isUdFeat:boolean) => (event:React.MouseEvent<HTMLButtonElement>) => {
+        const handleRemoveFilter = (event) => {
             dispatcher.dispatch<typeof Actions.KVRemoveFilter>({
                 name: Actions.KVRemoveFilter.name,
                 payload: {
-                    tagsetId: state.tagsetInfo.ident,
+                    tagsetId: props.tagsetInfo.ident,
                     sourceId: props.sourceId,
-                    name: event.currentTarget.name,
-                    value: event.currentTarget.value,
-                    isUdFeat
+                    name: event.target.name,
+                    value: event.target.value
                 }
             });
         };
 
-        const handleUndoButton = (tagsetId:string) => () => {
-            dispatcher.dispatch(
-                Actions.Undo,
-                {
-                    tagsetId,
-                    sourceId: props.sourceId
+        const handleCategorySelect = (event) => {
+            dispatcher.dispatch<typeof Actions.KVSelectCategory>({
+                name: Actions.KVSelectCategory.name,
+                payload: {
+                    tagsetId: props.tagsetInfo.ident,
+                    sourceId: props.sourceId,
+                    value: event.target.value
                 }
-            );
+            });
         };
 
-        const handleResetButton = (tagsetId:string) => () => {
-            dispatcher.dispatch(
-                Actions.Reset,
-                {
-                    tagsetId,
-                    sourceId: props.sourceId
-                }
-            );
-        };
+        const data = props.data[props.sourceId];
 
         if (data.error) {
-            return (
-                <S.FeatureSelect>
-                    <div className="error">
-                        <div className="icon">
-                            <span>Error: {data.error.message}</span>
-                            <img src={ut.createStaticUrl('img/config-icon-pink.svg')} />
-                        </div>
-                    </div>
-                </S.FeatureSelect>
-            );
+            return <div>Error: {data.error.message}</div>;
 
         } else {
-            const canUndo = List.size(data.filterFeaturesHistory) > 1;
-            const canInsert = pipe(
-                {...data.allAttrs, ...data.allUdFeats},
-                Dict.some(
-                    (items, _) => List.some(v => v.selected, items)
-                )
-            );
+            const featsWithoutPos = {...data.allFeatures};
+            delete featsWithoutPos['POS'];
+
             return (
                 <S.FeatureSelect>
-                    <QueryBox
-                        data={data}
-                        handleRemoveFilter={handleRemoveFilter} />
-                    <div className="selections">
-                        {pipe(
-                            data.attrConf,
-                            List.sortedBy(v => v.vertIdx),
-                            List.map(
-                                (attrConf, i) => {
-                                    if (attrConf.isUdFeats) {
-                                        const isLocked = Dict.some((items, _) => List.some(v2 => v2.available === 'locked', items), data.allUdFeats);
-                                        return (
-                                            <S.CategoryDetail key={`${attrConf.name}:${i}`} style={{marginRight: '5em'}}>
-                                                <div className="heading">
-                                                    <AttrLockStatus locked={isLocked} />
-                                                    <h3>{attrConf.name}</h3>
-                                                </div>
-                                                <UDSelection
-                                                    sourceId={props.sourceId}
-                                                    tagsetId={state.tagsetInfo.ident}
-                                                    filterValue={data.attrsFilters['ud']}
-                                                    expandedFeat={data.expandedUdFeat}
-                                                    onChangeHandler={handleCheckboxChange(true)}
-                                                    udFeats={data.allUdFeats} />
-                                            </S.CategoryDetail>
-                                        );
-
-                                    } else {
-                                        const attrValues = data.allAttrs[attrConf.name] || [];
-                                        return (
-                                            <S.CategoryDetail key={`${attrConf.name}:${i}`} style={{marginRight: '5em'}}>
-                                                <div className="heading">
-                                                    <AttrLockStatus locked={List.some(v => v.available === 'locked', attrValues)} />
-                                                    <h3>{attrConf.name}</h3>
-                                                </div>
-                                                <AttrSelection
-                                                    sourceId={props.sourceId}
-                                                    name={attrConf.name}
-                                                    filterValue={data.attrsFilters[attrConf.name]}
-                                                    onChangeHandler={handleCheckboxChange(false)}
-                                                    categoryName={attrConf.name}
-                                                    allValues={attrValues} />
-                                            </S.CategoryDetail>
-                                        )
-                                    }
-                                }
-                            )
-                        )}
+                    <h4>{ut.translate('taghelper__selected_features_label')}:</h4>
+                    <div className='QueryLine' style={{maxWidth: '39em', minHeight: '4em'}}>
+                        <QueryExpression
+                            filterFeatures={List.last(data.filterFeaturesHistory)}
+                            handleRemoveFilter={handleRemoveFilter} />
                     </div>
-                    <div className="buttons">
-                        <button
-                                type="button"
-                                className={`util-button ${canInsert ? '' : 'disabled'}`}
-                                onClick={canInsert ?
-                                handleInsertButton : undefined}>
-                            {ut.translate('taghelper__insert_btn')}
-                        </button>
-                        <span className="separ"></span>
-                        <button
-                            type="button"
-                            className={`util-button cancel ${canUndo ? '' : 'disabled'}`}
-                            onClick={canUndo ?
-                                handleUndoButton(state.tagsetInfo.ident) : undefined}>
-                            {ut.translate('taghelper__undo')}
-                        </button>
-                        <button
-                                type="button"
-                                className={`util-button cancel ${canUndo ? '' : 'disabled'}`}
-                                onClick={canUndo ?
-                                    handleResetButton(state.tagsetInfo.ident) : undefined}>
-                            {ut.translate('taghelper__reset')}
-                        </button>
+                    <div style={{display: 'flex', alignItems: 'stretch'}}>
+                        <S.CategoryDetail style={{marginRight: '5em'}}>
+                            <h4>{ut.translate('taghelper__part_of_speech_label')}:</h4>
+                            <CategoryDetail
+                                onChangeHandler={(event) => handleCheckboxChange(event)}
+                                filterFeatures={List.last(data.filterFeaturesHistory)}
+                                categoryName="POS"
+                                allValues={data.allFeatures['POS'] || []}
+                                availableValues={data.availableFeatures['POS'] || []} />
+                        </S.CategoryDetail>
+                        <div>
+                            <h4>{ut.translate('taghelper__features_label')}:</h4>
+                            <div style={{display: 'flex', alignItems: 'flex-start'}}>
+                                <S.CategorySelect className='CategorySelect' style={{marginRight: '2em'}}>
+                                    <CategorySelect
+                                        allFeatures={featsWithoutPos}
+                                        availableFeatures={data.availableFeatures}
+                                        onSelectCategoryHandler={handleCategorySelect}
+                                        selectedCategory={data.showCategory} />
+                                </S.CategorySelect>
+                                <S.CategoryDetail>
+                                    <CategoryDetail
+                                        onChangeHandler={(event) => handleCheckboxChange(event)}
+                                        filterFeatures={List.last(data.filterFeaturesHistory)}
+                                        categoryName={data.showCategory}
+                                        allValues={data.allFeatures[data.showCategory] || []}
+                                        availableValues={data.availableFeatures[data.showCategory] || []} />
+                                </S.CategoryDetail>
+                            </div>
+                        </div>
                     </div>
                 </S.FeatureSelect>
             );

@@ -27,15 +27,10 @@ import { ConcordanceModel } from '../../../models/concordance/main.js';
 import { ConcLinesStorage } from '../../../models/concordance/selectionStorage.js';
 import { init as initMediaViews } from '../../audioPlayer/index.js';
 import { Actions } from '../../../models/concordance/actions.js';
-import { LineSelectionModes, TextChunk } from '../../../models/concordance/common.js';
+import { LineSelectionModes, TextChunk, FullRef } from '../../../models/concordance/common.js';
 import * as S from './style.js';
 import { AudioPlayerModel } from '../../../models/audioPlayer/model.js';
-
-
-
-export interface RefsClickHandler {
-    (corpusId:string, lineIdx:number, tokenNumber:number):void;
-}
+import { HTTP } from 'cnc-tskit';
 
 
 export interface LineExtrasViews {
@@ -68,7 +63,14 @@ export interface LineExtrasViews {
         data:Array<string>;
         refMaxWidth:number;
         emptyRefValPlaceholder:string;
-        refsDetailClickHandler:RefsClickHandler;
+        refsDetailClickHandler:(corpusId:string, tokNum:number, lineIdx:number)=>void;
+    }>;
+
+    VideoButton:React.FC<{
+        corpusId:string;
+        tokenNumber:number;
+        lineIdx:number;
+        data:Array<string>;
     }>;
 }
 
@@ -145,7 +147,7 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
 
     }> = (props) => {
 
-        const checkboxChangeHandler = React.useCallback((event) => {
+        const checkboxChangeHandler = (event) => {
             dispatcher.dispatch<typeof Actions.SelectLine>({
                 name: Actions.SelectLine.name,
                 payload: {
@@ -155,7 +157,7 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
                     kwicLength: props.kwicLength
                 }
             });
-        }, [props.tokenNumber, props.kwicLength]);
+        };
 
         return <input type="checkbox" checked={props.groupId !== undefined}
                         onChange={checkboxChangeHandler} />;
@@ -201,7 +203,7 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
                     return <span className="group-id" style={css}>{groupLabel}</span>;
 
                 } else {
-                    return <span className="group-id">{'\u00a0'}</span>;
+                    return null;
                 }
 
             } else if (props.mode === 'simple') {
@@ -214,9 +216,9 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
         };
 
         return (
-            <S.ManualSelection>
+            <S.ManualSelectionTd>
                 {renderInput()}
-            </S.ManualSelection>
+            </S.ManualSelectionTd>
         );
     };
 
@@ -249,17 +251,7 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
 
     // ------------------------- <RefInfo /> ---------------------
 
-    interface normalizedLabels {
-        total:number;
-        shortenedAt:number;
-        i:number;
-        text:Array<{t:string; m:string}>;
-    }
-
-    function normalizeLabels(data:Array<string>, maxWidth: number):normalizedLabels {
-        if (maxWidth === 0) {
-            return {total: 0, shortenedAt: -1, i: 0, text: []};
-        }
+    function normalizeLabels(data:Array<string>, maxWidth: number) {
         return List.foldl<
             string,
             {
@@ -318,7 +310,7 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
             he.translate('concview__click_for_details');
         return (
             <a title={title}
-                    onClick={()=>props.refsDetailClickHandler(props.corpusId, props.lineIdx, props.tokenNumber)}>
+                    onClick={()=>props.refsDetailClickHandler(props.corpusId, props.tokenNumber, props.lineIdx)}>
                 {pipe(
                     normLabels.text,
                     List.filter((_, i) => normLabels.shortenedAt !== -1 ? i <= normLabels.shortenedAt : true),
@@ -340,11 +332,108 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
     };
 
 
+    // ------------------------- <VideoButton /> ---------------------
+
+    const VideoButton:LineExtrasViews['VideoButton'] = (props) => {
+        const [videoUrl, setVideoUrl] = React.useState<string|null>(null);
+        const [startSeconds, setStartSeconds] = React.useState<number|null>(null);
+        const [isLoading, setIsLoading] = React.useState(true);
+
+        const parseStartSeconds = (raw:string):number|null => {
+            if (!raw) {
+                return null;
+            }
+            const trimmed = raw.trim();
+            if (/^\d+(\.\d+)?$/.test(trimmed)) {
+                return parseFloat(trimmed);
+            }
+            const parts = trimmed.split(':').map(v => parseFloat(v));
+            if (parts.some(v => Number.isNaN(v))) {
+                return null;
+            }
+            return parts.reduce((acc, v) => acc * 60 + v, 0);
+        };
+
+        React.useEffect(() => {
+            const fetchVideoInfo = async () => {
+                setIsLoading(true);
+                try {
+                    const url = he.createActionLink('fullref', {corpname: props.corpusId, pos: props.tokenNumber});
+                    const response = await fetch(url);
+                    const data:FullRef = await response.json();
+
+                    if (data.Refs) {
+                        const docUrlRef = data.Refs.find(ref => {
+                            const n = ref.name.toLowerCase();
+                            return n === 'doc.url' || n === 'url';
+                        });
+
+                        const timeStartRef = data.Refs.find(ref => {
+                            const n = ref.name.toLowerCase();
+                            return n === 'time.start' || n === 'start';
+                        });
+
+                        if (docUrlRef && docUrlRef.val) {
+                            const urlVal = docUrlRef.val;
+                            const isYoutube = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/i.test(urlVal);
+                            
+                            if (isYoutube) {
+                                setVideoUrl(urlVal);
+                                
+                                if (timeStartRef && timeStartRef.val) {
+                                    const seconds = parseStartSeconds(timeStartRef.val);
+                                    setStartSeconds(seconds);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error fetching video info:', err);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            fetchVideoInfo();
+        }, [props.corpusId, props.tokenNumber]);
+
+        const handleClick = () => {
+            if (videoUrl) {
+                dispatcher.dispatch<typeof Actions.ShowVideoPopup>({
+                    name: Actions.ShowVideoPopup.name,
+                    payload: {
+                        videoUrl,
+                        startSeconds
+                    }
+                });
+            }
+        };
+
+        if (isLoading || !videoUrl) {
+            return null;
+        }
+
+        return (
+            <a onClick={handleClick} 
+               title="Click to play video"
+               style={{
+                   cursor: 'pointer',
+                   position: 'absolute',
+                   right: '0.3em',
+                   top: '50%',
+                   transform: 'translateY(-50%)'
+               }}>
+                ▶
+            </a>
+        );
+    };
+
     return {
         AudioLink,
         TdLineSelection,
         SyntaxTreeButton,
-        RefInfo
+        RefInfo,
+        VideoButton
     };
 
  }

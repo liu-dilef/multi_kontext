@@ -42,85 +42,13 @@ export const ConcLines = styled.table`
     padding-bottom: 20px;
     width: 100%;
 
-`;
-
-
-export const LineTR = styled.tr`
-
-    td.aux-columns {
-
-        text-align: center;
-        vertical-align: middle;
-
-        .wrapper {
-            min-width: 200px;
-            display: flex;
-
-            .line-num {
-                width: 3em;
-            }
-
-            .syntax-tree {
-                width: 1em;
-            }
-        }
-    }
-
-    td.sticky {
-        position: sticky;
-        left: 0;
-        background-color: white;
-        z-index: 1;
-    }
-
-    td.aux-columns.sticky.shrinked {
-
-        padding: 0;
-        cursor: pointer;
-
-        .wrapper {
-            height: 15px;
-            min-width: 25px;
-            padding-right: 5px;
-            justify-content: flex-end;
-            align-items: center;
-        }
-    }
-
-    td.aux-columns.sticky.shrinked::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0.5, 0.15);
-        pointer-events: none;
-    }
-
-    td.sticky:first-child::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        right: -8px;
-        bottom: 0;
-        width: 8px;
-        pointer-events: none;
-        background: linear-gradient(to right, rgba(0,0,0,0.15), transparent);
-    }
-
     .line-num {
         text-align: right;
         color: ${theme.colorLightText};
     }
 
-    &:nth-child(2n):not(.active) {
+    tr:nth-child(2n):not(.active) {
         background-color: ${theme.colorTableEvenBg};
-
-        td.sticky {
-            background-color: ${theme.colorTableEvenBg};
-            z-index: 1;
-        }
     }
 
     td {
@@ -136,16 +64,15 @@ export const LineTR = styled.tr`
     .group-id {
         font-weight: bold;
         padding: 0.3em;
-        width: 2em;
     }
 
-    span:not(.ml) .attr {
+    tr span:not(.ml) .attr {
         font-size: 90%;
         font-weight: bold;
         font-family: ${theme.monospaceFontFamily};
     }
 
-    span {
+    mark {
         background-color: transparent;
     }
 
@@ -161,56 +88,29 @@ export const LineTR = styled.tr`
         background-color: rgba(0, 100, 255, 0.1);
     }
 
-    .ref {
-        margin-left: 0.5em;
+    td.ref a {
+        text-decoration: none;
+        font-size: 0.85em;
+        cursor: pointer;
+        color: #009EE0;
+        font-weight: bold;
+        max-width: 12em;
+        overflow: hidden;
+        text-overflow: ellipsis;
 
-        a {
-            text-decoration: none;
-            font-size: 0.85em;
-            cursor: pointer;
-            color: #009EE0;
-            font-weight: bold;
-            max-width: 12em;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        ${theme.mediaPhone} {
+            white-space: wrap;
+            padding-right: 1em;
+        }
 
-            ${theme.mediaPhone} {
-                white-space: wrap;
-                padding-right: 1em;
-            }
-
-            ${theme.mediaNoPhone} {
-                white-space: nowrap;
-                padding-right: 2em;
-            }
+        ${theme.mediaNoPhone} {
+            white-space: nowrap;
+            padding-right: 2em;
         }
     }
 
     tr.active .ref {
         color: #FFFFFF;
-    }
-
-    .lc, .rc, .par {
-
-        .coll {
-            font-style: italic;
-            font-weight: normal;
-            color: ${theme.colorLogoPink};
-        }
-
-        .tail {
-            padding-left: 0.1em;
-            color: ${theme.colorLightText};
-        }
-    }
-
-    .par .col0 {
-        font-style: normal;
-        font-weight: bold;
-
-        .tail {
-            color: ${theme.colorDefaultText};
-        }
     }
 
     .lc {
@@ -230,22 +130,25 @@ export const LineTR = styled.tr`
     .kw {
         text-align: center;
         white-space: nowrap;
+    }
 
-        .coll {
-            color: ${theme.colorLogoPink};
-            cursor: pointer;
-        }
+    .coll {
+        color: ${theme.colorLogoPink};
+        cursor: pointer;
+    }
 
-        .tail {
-            color: ${theme.colorDefaultText};
-            padding-left: 0.1em;
-        }
+    em.coll {
+        cursor: text;
     }
 
     .col0 {
         font-weight: bold;
     }
 
+    i.coll {
+        font-style: italic;
+        font-weight: normal;
+    }
 
     .strc {
         color: green;
@@ -305,13 +208,11 @@ export const LineTR = styled.tr`
         background-color: RGBA(138, 195, 218, 0.6);
     }
 
-    // attributes on a separate line
-
-    td.lc > span.ml, td.rc > span.ml, td > em.ml, td.par > span > span.ml {
+    td.lc > span.ml, td.rc > span.ml, td.kw > strong.ml, td > em.ml, td.par > span > span.ml, td.par > span > strong.ml {
         display: inline-flex;
         flex-direction: column;
         justify-content: start;
-        text-align: left;
+        text-align: center;
 
         span.tail {
             color: ${theme.colorLightText};
@@ -328,19 +229,6 @@ export const LineTR = styled.tr`
     .warning {
         height: 1em;
         margin-right: 0.1em;
-    }
-
-    .minimized-aux {
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        a {
-            display: block;
-            color: ${theme.colorLogoBlue};
-            text-decoration: none;
-        }
     }
 
 `;

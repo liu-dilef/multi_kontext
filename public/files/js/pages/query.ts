@@ -254,7 +254,7 @@ export class QueryPage {
                     Dict.fromEntries()
                 ),
                 concViewPosAttrs: this.getConf<ConcServerArgs>('currentArgs').attrs,
-                alignCommonPosAttrs: this.getConf<Kontext.AlignCommonPosAttrs>('AlignCommonPosAttrs'),
+                alignCommonPosAttrs: this.getConf<Array<string>>('AlignCommonPosAttrs'),
                 concPreflight: {
                     corpname: this.layoutModel.getCorpusIdent().id,
                     eval_api_url: this.layoutModel.getConf<string>('ConcPreflightApiUrl'),
@@ -316,7 +316,7 @@ export class QueryPage {
         this.layoutModel.init(true, [], () => {
             this.queryHintModel = new UsageTipsModel(
                 this.layoutModel.dispatcher,
-                this.layoutModel.translateRich.bind(this.layoutModel)
+                this.layoutModel.translate.bind(this.layoutModel)
             );
             this.withinBuilderModel = new WithinBuilderModel(
                 this.layoutModel.dispatcher,

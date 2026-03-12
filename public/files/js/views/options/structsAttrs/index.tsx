@@ -27,7 +27,7 @@ import {
     CorpusViewOptionsModel,
     CorpusViewOptionsModelState } from '../../../models/options/structsAttrs.js';
 import { Actions } from '../../../models/options/actions.js';
-import { Dict, List, pipe } from 'cnc-tskit';
+import { List } from 'cnc-tskit';
 
 import * as S from './style.js';
 
@@ -145,9 +145,8 @@ export function init({dispatcher, helpers, viewOptionsModel}:StructsAttrsModuleA
     // ---------------------------- <AttributesCheckboxes /> ----------------------
 
     const AttributesCheckboxes:React.FC<{
-        corpname:string;
         attrList:Array<ViewOptions.AttrDesc>;
-        alignCommonPosAttrs:Kontext.AlignCommonPosAttrs;
+        alignCommonPosAttrs:Array<string>;
         basePosAttr:string;
         baseViewAttr:string;
         hasSelectAll:boolean;
@@ -171,25 +170,9 @@ export function init({dispatcher, helpers, viewOptionsModel}:StructsAttrsModuleA
             });
         };
 
-        const hasCommonPosAttrsIssues = Dict.some(
-            (attrs, corp) => List.some(
-                ([, exists]) => !exists,
-                attrs
-            ),
-            props.alignCommonPosAttrs
-        );
-
-        const attrNotInAllCorpora = (attrName:string):boolean => pipe(
-            props.alignCommonPosAttrs,
-            Dict.map(
-                (attrs, corpname) => List.find(([attr,]) => attr === attrName, attrs)
-            ),
-            Dict.map(
-                (v, k) => v === undefined ? ['', false] : v,
-            ),
-            Dict.some(
-                ([, avail], k) => !avail
-            )
+        const hasCommonPosAttrsIssues = List.some(
+            attr => !List.find(v => v === attr.n, props.alignCommonPosAttrs),
+            props.attrList
         );
 
         return (
@@ -217,7 +200,7 @@ export function init({dispatcher, helpers, viewOptionsModel}:StructsAttrsModuleA
                                 </td>
                                 {hasCommonPosAttrsIssues ?
                                     <td className="warning">
-                                        {attrNotInAllCorpora(item.n) ?
+                                        {!List.find(v => v === item.n, props.alignCommonPosAttrs) ?
                                             helpers.translate('options__posattr_not_in_all_aligned_corpora') :
                                             null
                                         }
@@ -520,11 +503,10 @@ export function init({dispatcher, helpers, viewOptionsModel}:StructsAttrsModuleA
     // ---------------------------- <StructsAndAttrsForm /> ----------------------
 
     const StructsAndAttrsForm:React.FC<{
-        corpname:string;
         hasLoadedData:boolean;
         fixedAttr:string;
         attrList:Array<ViewOptions.AttrDesc>;
-        alignCommonPosAttrs:Kontext.AlignCommonPosAttrs;
+        alignCommonPosAttrs:Array<string>;
         baseViewAttr:string;
         basePosAttr:string;
         availStructs:Array<ViewOptions.StructDesc>;
@@ -572,7 +554,6 @@ export function init({dispatcher, helpers, viewOptionsModel}:StructsAttrsModuleA
                             items={items}>
 
                             <AttributesCheckboxes
-                                corpname={props.corpname}
                                 attrList={props.attrList}
                                 alignCommonPosAttrs={props.alignCommonPosAttrs}
                                 basePosAttr={props.basePosAttr}
@@ -623,7 +604,6 @@ export function init({dispatcher, helpers, viewOptionsModel}:StructsAttrsModuleA
     const StructAttrsViewOptions:React.FC<StructAttrsViewOptionsProps & CorpusViewOptionsModelState> = (props) => (
         <S.StructAttrsViewOptions>
             <StructsAndAttrsForm
-                    corpname={props.corpusIdent.id}
                     fixedAttr={props.fixedAttr}
                     attrList={props.attrList}
                     alignCommonPosAttrs={props.alignCommonPosAttrs}

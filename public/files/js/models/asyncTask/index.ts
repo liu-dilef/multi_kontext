@@ -85,9 +85,7 @@ export class AsyncTaskChecker extends StatefulModel<AsyncTaskCheckerState> {
                     List.forEach(
                         newTask => {
                             const updated = List.find(t => t.ident === newTask.ident, this.state.asyncTasks);
-                            if (List.find(t => t.ident === newTask.ident, updatedList) === undefined) {
-                                updatedList.push(updated ? updated : newTask);
-                            }
+                            updatedList.push(updated ? updated : newTask);
                         },
                         action.payload.tasks
                     );
@@ -148,7 +146,7 @@ export class AsyncTaskChecker extends StatefulModel<AsyncTaskCheckerState> {
                         created: action.payload.created ? action.payload.created : new Date().getTime() / 1000,
                         label: action.payload.label,
                         category: action.payload.category,
-                        message: action.payload.message,
+                        error: action.payload.error,
                         args: action.payload.args ? action.payload.args : {},
                         url: action.payload.url ? action.payload.url : undefined
                     };
@@ -156,19 +154,12 @@ export class AsyncTaskChecker extends StatefulModel<AsyncTaskCheckerState> {
                         state.asyncTasks.push(newTask);
                     });
                     if (!Dict.hasValue(newTask.category, DownloadType)) {
-                        this.startWatchingTask(newTask.ident);
+                        this.startWatchingTask(newTask);
                     }
 
                 } else {
                     this.pageModel.showMessage('error', action.error);
                 }
-            }
-        );
-
-        this.addActionHandler(
-            Actions.AsyncTasksWatch,
-            action => {
-                this.startWatchingTask(action.payload.ident);
             }
         );
 
@@ -186,7 +177,7 @@ export class AsyncTaskChecker extends StatefulModel<AsyncTaskCheckerState> {
                             ...old,
                             status: action.payload.status,
                             ident: action.payload.ident,
-                            message: action.error ? this.decodeError(old, action.error) : undefined
+                            error: action.error ? this.decodeError(old, action.error) : undefined
                         };
                         if ((old.status === 'PENDING' || old.status === 'STARTED')
                                 && (state.asyncTasks[srchIdx].status === 'FAILURE' ||
@@ -258,7 +249,7 @@ export class AsyncTaskChecker extends StatefulModel<AsyncTaskCheckerState> {
 
             } else {
                 srch.status = incoming.status;
-                srch.message = incoming.message;
+                srch.error = incoming.error;
             }
 
         } else {
@@ -267,11 +258,11 @@ export class AsyncTaskChecker extends StatefulModel<AsyncTaskCheckerState> {
         return List.filter(taskIsFinished, state.asyncTasks);
     }
 
-    private startWatchingTask(ident:string) {
+    private startWatchingTask(task:Kontext.AsyncTaskInfo) {
         this.pageModel.openEventSource<Kontext.AsyncTaskInfo>(
             this.pageModel.createActionUrl<{taskId: string}>(
                 'task_status',
-                {taskId: ident}
+                {taskId: task.ident}
             ),
             (v:Kontext.AsyncTaskInfo) => v.status === 'SUCCESS' || v.status === 'FAILURE'
 
@@ -299,7 +290,7 @@ export class AsyncTaskChecker extends StatefulModel<AsyncTaskCheckerState> {
                 // exclude download tasks
                 List.filter(v => !Dict.hasValue(v.category, DownloadType)),
                 List.forEach(item => {
-                    this.startWatchingTask(item.ident);
+                    this.startWatchingTask(item);
                 })
             );
         }

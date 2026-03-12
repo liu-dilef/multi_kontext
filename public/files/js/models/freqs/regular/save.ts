@@ -204,7 +204,7 @@ export class FreqResultsSaveModel extends StatefulModel<FreqResultsSaveModelStat
         this.saveLinkFn(
             undefined,
             this.state.saveformat,
-            taskId => this.layoutModel.createActionUrl('savefreq', {task_id: taskId, ...args}),
+            this.layoutModel.createActionUrl('savefreq', args)
         );
     }
 }

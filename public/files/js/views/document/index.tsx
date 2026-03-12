@@ -444,47 +444,42 @@ export function init(
 
     // ------------------------------ <Abbreviation /> -----------------------------------
 
-    const Abbreviation:React.FC<CoreViews.Abbreviation.Props> = (props) => {
+    class Abbreviation extends React.Component<CoreViews.Abbreviation.Props, {helpVisible:boolean}> {
 
-        const [helpVisible, setHelpVisible] = React.useState(false);
+        constructor(props) {
+            super(props);
+            this._clickHandler = this._clickHandler.bind(this);
+            this.state = {helpVisible: false};
+        }
 
-        const _clickHandler = () => {
-            setHelpVisible(!helpVisible);
-        };
+        _clickHandler() {
+            this.setState({helpVisible: !this.state.helpVisible});
+        }
 
-        const title = props.hideLabelInDescription ?
-            he.translate('global__click_to_see_more') :
-            he.translate('global__click_to_see_def');
-
-        return (
-            <S.Abbrevation>
-                <abbr title={title} onClick={_clickHandler}>
-                    {props.value}
-                </abbr>
-                {helpVisible ?
-                        <PopupBox onCloseClick={_clickHandler}
-                                customStyle={props.customStyle}>
-                            {props.hideLabelInDescription ?
-                                null :
-                                <><strong>{props.value}</strong> = </>
-                            }
-                            {props.desc ?
-                                props.desc :
-                                props.children
-                            }
-                            {props.url ?
-                                <div className="link">
-                                    <hr />
-                                    <a className="external" href={props.url} target='_blank'>
-                                        {he.translate('global__get_more_info')}
-                                    </a>
-                                </div> : null}
-                        </PopupBox>
-                        :
-                    null
-                }
-            </S.Abbrevation>
-        );
+        render() {
+            return (
+                <S.Abbrevation title={he.translate('global__click_to_see_def')} >
+                    <abbr onClick={this._clickHandler}>
+                        {this.props.value}
+                    </abbr>
+                    {this.state.helpVisible ?
+                            <PopupBox onCloseClick={this._clickHandler}
+                                    customStyle={this.props.customStyle}>
+                                <strong>{this.props.value}</strong> = {this.props.desc}
+                                {this.props.url ?
+                                    <div className="link">
+                                        <hr />
+                                        <a className="external" href={this.props.url} target='_blank'>
+                                            {he.translate('global__get_more_info')}
+                                        </a>
+                                    </div> : null}
+                            </PopupBox>
+                            :
+                        null
+                    }
+                </S.Abbrevation>
+            );
+        }
     }
 
 

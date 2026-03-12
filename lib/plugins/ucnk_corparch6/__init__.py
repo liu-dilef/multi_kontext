@@ -92,8 +92,6 @@ async def get_favorite_corpora(amodel: UserActionModel, req: KRequest, resp: KRe
 async def ask_corpus_access(amodel: UserActionModel, req: KRequest, resp: KResponse):
     ans = {}
     with plugins.runtime.CORPARCH as ca:
-        if amodel.plugin_ctx.user_is_anonymous:
-            raise ForbiddenException('Anonymous user cannot send the request')
         status = await ca.send_request_email(
             corpus_id=req.form.get('corpusId'),
             plugin_ctx=amodel.plugin_ctx,

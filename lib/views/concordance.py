@@ -20,12 +20,10 @@ import os
 import re
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import conclib
 import corplib
-from bgcalc.task import AsyncTaskStatus
-import bgcalc
 import mailing
 import plugins
 import settings
@@ -142,10 +140,9 @@ async def query(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     action_model=ConcActionModel)
 async def query_submit(amodel: ConcActionModel, req: KRequest, resp: KResponse):
 
-    async def store_last_op(conc_ids: List[str], history_ts: Optional[int], resp:KResponse[Dict[str, Any]]):
+    async def store_last_op(conc_ids: List[str], history_ts: Optional[int], _):
         if history_ts:
             amodel.store_last_search('conc', conc_ids[0])
-            resp.set_header('Location', req.create_url('view', dict(q=f'~{conc_ids[0]}')))
 
     amodel.clear_prev_conc_params()
     ans = {}
@@ -191,6 +188,8 @@ async def query_submit(amodel: ConcActionModel, req: KRequest, resp: KResponse):
             raise ex
     ans['conc_args'] = amodel.get_mapped_attrs(ConcArgsMapping)
     ans['conc_args']['cutoff'] = amodel.args.cutoff
+    url = req.create_url('view', ans['conc_args'])
+    resp.set_header('Location', url)
     return ans
 
 
@@ -299,7 +298,7 @@ async def view_conc(
                     amodel.plugin_ctx, corpus_info.tokens_linking.providers,
                     [amodel.args.corpname] + amodel.args.align)
 
-            kwic = Kwic(amodel.corp, conc, await amodel.get_all_corp_merged_posattrs())
+            kwic = Kwic(amodel.corp, conc)
 
             out['Sort_idx'] = kwic.get_sort_idx(q=amodel.args.q, pagesize=amodel.args.pagesize)
             out.update(asdict(kwic.kwicpage(kwic_args)))
@@ -352,7 +351,6 @@ async def view_conc(
     out['conc_line_max_group_num'] = settings.get_int('global', 'conc_line_max_group_num', 99)
     out['aligned_corpora'] = amodel.args.align
     out['line_numbers'] = amodel.args.line_numbers if amodel.args.line_numbers else False
-    out['fixed_aux_columns'] = amodel.args.fixed_aux_columns if amodel.args.fixed_aux_columns else False
     out['speech_segment'] = await amodel.get_speech_segment()
     out['speaker_id_attr'] = corpus_info.speaker_id_attr.split(
         '.') if corpus_info.speaker_id_attr else None
@@ -474,7 +472,7 @@ async def restore_conc(amodel: ConcActionModel, req: KRequest, resp: KResponse):
                 kwic_args.internal_attrs = await tl.get_required_attrs(
                     amodel.plugin_ctx, corpus_info.tokens_linking.providers,
                     [amodel.args.corpname] + amodel.args.align)
-            kwic = Kwic(amodel.corp, conc, await amodel.get_all_corp_merged_posattrs())
+            kwic = Kwic(amodel.corp, conc)
             out['Sort_idx'] = kwic.get_sort_idx(q=amodel.args.q, pagesize=amodel.args.pagesize)
             out.update(asdict(kwic.kwicpage(kwic_args)))
             out.update(await amodel.get_conc_sizes(conc))
@@ -850,7 +848,7 @@ async def filter(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     """
     Positive/Negative filter
     """
-    async def store_last_op(conc_ids: List[str], history_ts: Optional[int], resp):
+    async def store_last_op(conc_ids: List[str], history_ts: Optional[int], _):
         if history_ts:
             amodel.store_last_search('conc:filter', conc_ids[0])
 
@@ -1114,7 +1112,7 @@ async def ajax_get_first_line_select_page(amodel: ConcActionModel, req: KRequest
         q=amodel.args.q, fromp=amodel.args.fromp, pagesize=amodel.args.pagesize,
         asnc=False, cutoff=amodel.args.cutoff)
     amodel.apply_linegroups(conc)
-    kwic = Kwic(amodel.corp, conc, await amodel.get_all_corp_merged_posattrs())
+    kwic = Kwic(amodel.corp, conc)
     return {'first_page': int((kwic.get_groups_first_line() - 1) / amodel.args.pagesize) + 1}
 
 
@@ -1239,7 +1237,6 @@ class SaveConcArgs:
     align_kwic: int = 0
     from_line: int = 0
     to_line: IntOpt = -1
-    task_id: str = ''
 
 
 def _get_ipm_base_set_desc(corp: AbstractKCorpus, contains_within, translate: Callable[[str], str]):
@@ -1274,7 +1271,7 @@ async def saveconc(amodel: ConcActionModel, req: KRequest[SaveConcArgs], resp: K
             corp=amodel.corp, user_id=req.session_get('user', 'id'), q=amodel.args.q, fromp=amodel.args.fromp,
             pagesize=amodel.args.pagesize, asnc=False, cutoff=amodel.args.cutoff)
         amodel.apply_linegroups(conc)
-        kwic = Kwic(amodel.corp, conc, await amodel.get_all_corp_merged_posattrs())
+        kwic = Kwic(amodel.corp, conc)
         conc.switch_aligned(os.path.basename(amodel.args.corpname))
 
         if len(amodel.args.align) == 0 and conc.size() < MAX_SINGLE_CHUNK_SAVE_CONC_SIZE:
@@ -1295,7 +1292,6 @@ async def saveconc(amodel: ConcActionModel, req: KRequest[SaveConcArgs], resp: K
                 'Content-Disposition',
                 f'attachment; filename="{mkfilename(req.mapped_args.saveformat)}"')
 
-            long_lines: Set[int] = set()
             for from_line, to_line in line_range_chunks:
                 if from_line > 0:
                     req.mapped_args.heading = 0
@@ -1320,25 +1316,12 @@ async def saveconc(amodel: ConcActionModel, req: KRequest[SaveConcArgs], resp: K
 
                 maxcontext = int(amodel.corp.get_conf('MAXCONTEXT'))
                 if maxcontext:
-                    for i, line in enumerate(data.Lines, from_line+1):
+                    for line in data.Lines:
                         if len(line["Kwic"]) > maxcontext:
-                            line["Kwic"] = line["Kwic"][:maxcontext] + [{'str': '...'}]
-                            long_lines.add(i)
+                            raise UnavailableForLegalReasons('KWIC too large')
                 if len(data.Lines) > 0:
                     await writer.write_conc(amodel, data, req.mapped_args)
-
             output = writer.raw_content()
-
-        notification = None
-        worker = bgcalc.calc_backend_client(settings)
-        if len(long_lines) > 0:
-            msg = req.translate('Some downloaded lines exceeded the maximum length permitted by copyright protection rules and have been truncated')
-            long_lines = sorted(long_lines)
-            if len(long_lines) <= 20:
-                notification = '{}: {}'.format(msg, ", ".join(map(str, long_lines)))
-            else:
-                notification = '{}: {},... ({}: {})'.format(msg,  ", ".join(map(str, long_lines[:20])), req.translate('total'), len(long_lines))
-        await worker.send_task('notification', object.__class__, (notification,), task_id=req.mapped_args.task_id)
         return bytes_stream(output)
 
     except Exception as e:

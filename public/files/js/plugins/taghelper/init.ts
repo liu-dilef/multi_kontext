@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+import { BoundWithProps } from 'kombo';
 import { List, tuple, pipe } from 'cnc-tskit';
 
 import * as PluginInterfaces from '../../types/plugins/index.js';
 import { DataInitSyncModel, PosTagModel } from './positional/models.js';
-import { createEmptyPosTagsetStatus } from './positional/common.js';
-import { createEmptyUDTagsetStatus, UDTagBuilderModel } from './keyval/models.js';
+import { PosTagModelState, createEmptyPosTagsetStatus } from './positional/common.js';
+import { createEmptyUDTagsetStatus, UDTagBuilderModel, UDTagBuilderModelState } from './keyval/models.js';
 import { init as viewInit} from './views.js';
 import { init as ppTagsetViewInit} from './positional/views.js';
 import { init as udTagsetViewInit} from './keyval/views.js';
@@ -31,19 +32,18 @@ import { TabFrameModel } from './models.js';
 import { IPluginApi } from '../../types/plugins/common.js';
 import { PluginName } from '../../app/plugin.js';
 import { EmptyTagHelperPlugin } from '../empty/taghelper/init.js';
-import { ViewProps } from '../../types/plugins/tagHelper.js';
 
 declare var require:any;
 require('./style.css'); // webpack
 
 
+type AnyComponent = React.FC<any>|React.ComponentClass<any>;
+
 type AnyModel = PosTagModel|UDTagBuilderModel;
 
-type TagBuilderView = React.FC<ViewProps>;
 
 
-
-function isPresent(list:Array<[string, TagBuilderView, AnyModel, unknown]>, ident:string):boolean {
+function isPresent(list:Array<[string, AnyComponent, AnyModel, unknown]>, ident:string):boolean {
     return List.some(([d,,]) => d === ident, list);
 }
 
@@ -59,7 +59,7 @@ export class TagHelperPlugin implements PluginInterfaces.TagHelper.IPlugin {
 
     private pluginApi:IPluginApi;
 
-    private deps:Array<[string, TagBuilderView, AnyModel, unknown]>;
+    private deps:Array<[string, AnyComponent, AnyModel, unknown]>;
 
     constructor(pluginApi:IPluginApi) {
         this.pluginApi = pluginApi;
@@ -71,7 +71,7 @@ export class TagHelperPlugin implements PluginInterfaces.TagHelper.IPlugin {
     }
 
     private addPosTagsetBuilder(
-            deps:Array<[string, TagBuilderView, AnyModel, unknown]>,
+            deps:Array<[string, AnyComponent, AnyModel, unknown]>,
             tagsetInfo:PluginInterfaces.TagHelper.TagsetInfo,
             corpname:string,
             sourceId:string
@@ -79,6 +79,10 @@ export class TagHelperPlugin implements PluginInterfaces.TagHelper.IPlugin {
         if (isPresent(deps, tagsetInfo.ident)) {
             return;
         }
+        const view = ppTagsetViewInit(
+            this.pluginApi.dispatcher(),
+            this.pluginApi.getComponentHelpers()
+        );
         const model = new PosTagModel(
             this.pluginApi.dispatcher(),
             this.pluginApi,
@@ -91,25 +95,19 @@ export class TagHelperPlugin implements PluginInterfaces.TagHelper.IPlugin {
             },
             tagsetInfo.ident
         );
-        const view = ppTagsetViewInit(
-            this.pluginApi.dispatcher(),
-            this.pluginApi.getComponentHelpers(),
-            model
-        );
-
 
         const syncModel = new DataInitSyncModel(this.pluginApi.dispatcher());
 
-        deps.push(tuple<string, TagBuilderView, AnyModel, unknown>(
+        deps.push(tuple<string, AnyComponent, AnyModel, unknown>(
             tagsetInfo.ident,
-            view,
+            BoundWithProps<{sourceId:string}, PosTagModelState>(view, model),
             model,
             syncModel
         ));
     }
 
     private addKeyvalTagsetBuilder(
-        deps:Array<[string, TagBuilderView, AnyModel, unknown]>,
+        deps:Array<[string, AnyComponent, AnyModel, unknown]>,
         tagsetInfo:PluginInterfaces.TagHelper.TagsetInfo,
         corpname:string,
         sourceId:string
@@ -117,7 +115,10 @@ export class TagHelperPlugin implements PluginInterfaces.TagHelper.IPlugin {
         if (isPresent(deps, tagsetInfo.ident)) {
             return;
         }
-
+        const view = udTagsetViewInit(
+            this.pluginApi.dispatcher(),
+            this.pluginApi.getComponentHelpers()
+        );
         const model = new UDTagBuilderModel(
             this.pluginApi.dispatcher(),
             this.pluginApi,
@@ -131,15 +132,9 @@ export class TagHelperPlugin implements PluginInterfaces.TagHelper.IPlugin {
             tagsetInfo.ident
         );
 
-        const view = udTagsetViewInit(
-            this.pluginApi.dispatcher(),
-            this.pluginApi.getComponentHelpers(),
-            model
-        );
-
         deps.push(tuple(
             tagsetInfo.ident,
-            view,
+            BoundWithProps<{sourceId:string}, UDTagBuilderModelState>(view, model),
             model,
             undefined
         ));

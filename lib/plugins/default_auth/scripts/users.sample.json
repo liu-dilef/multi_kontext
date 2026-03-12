@@ -6,7 +6,7 @@
     "firstname": "Anonymous",
     "lastname": null,
     "email": null,
-    "permitted_corpora": ["susanne"]
+    "permitted_corpora": ["susanne","impaqts"]
   },
   {
     "id": 1,

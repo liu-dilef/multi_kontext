@@ -32,13 +32,6 @@ interface DateTimeFormatOpts {
     day:'numeric'|'2-digit';
 }
 
-export interface RichTextTranslator {
-    (
-        msg: string,
-        values?: Record<string, PrimitiveType | React.ReactNode | FormatXMLElementFn<React.ReactNode>>
-    ): string | React.ReactNode | Array<string | React.ReactNode>
-}
-
 /**
  * L10n provides a set of essential localization functions.
  */
@@ -61,7 +54,7 @@ export class L10n implements ITranslator {
 
     translate(msg:string, values?:{[key:string]:string|number|boolean}):string {
         if (msg) {
-            const tmp = this.translations[msg];
+            const tmp = this.translations[msg];``
             if (tmp) {
                 try {
                     const format = new IntlMessageFormat(this.translations[msg], this.uiLang);
@@ -87,7 +80,10 @@ export class L10n implements ITranslator {
      * an empty string. Non-translated keys are passed
      * as they are.
      */
-    translateRich:RichTextTranslator = (msg, values) => {
+    translateRich(
+        msg: string,
+        values?: Record<string, PrimitiveType | React.ReactNode | FormatXMLElementFn<React.ReactNode>>
+    ): string | React.ReactNode | Array<string | React.ReactNode> {
         if (msg) {
             const tmp = this.translations[msg];
             if (tmp) {

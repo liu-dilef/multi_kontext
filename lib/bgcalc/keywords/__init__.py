@@ -47,8 +47,7 @@ def _cache_dir_path(form: KeywordsFormArgs) -> str:
 def _create_cache_path(form: KeywordsFormArgs) -> str:
     if manatee_is_custom_cnc():
         key = (f'{form.corpname}:{form.usesubcorp}:{form.ref_corpname}:{form.ref_usesubcorp}:{form.wlattr}:{form.wlpat}:'
-               f'{form.include_nonwords}:{form.wltype}:{form.wlnums}:{form.wlminfreq}:{form.wlmaxfreq}:{form.score_type}:'
-               f'{form.filter_type}:{form.filter_min_value}:{form.filter_max_value}')
+               f'{form.include_nonwords}:{form.wltype}:{form.wlnums}:{form.wlminfreq}:{form.wlmaxfreq}:{form.score_type}')
     else:
         key = (f'{form.corpname}:{form.usesubcorp}:{form.ref_corpname}:{form.ref_usesubcorp}:{form.wlattr}:{form.wlpat}:'
                f'{form.include_nonwords}:{form.wltype}:{form.wlnums}:{form.wlminfreq}:{form.wlmaxfreq}')
@@ -85,7 +84,6 @@ KeywordsResultType = Union[List[KeywordLine], List[CNCKeywordLine]]
 class KeywordsResult:
     total: int
     data: KeywordsResultType
-    din_ranking_warning: bool = False
 
 
 async def require_existing_keywords(form: KeywordsFormArgs, offset: int, limit: int) -> KeywordsResult:
@@ -95,16 +93,7 @@ async def require_existing_keywords(form: KeywordsFormArgs, offset: int, limit: 
     else:
         data = load_cached_partial(path, offset, limit)
         LineDataClass = CNCKeywordLine if manatee_is_custom_cnc else KeywordLine
-        ans = KeywordsResult(data[0], [LineDataClass.from_dict(item) for item in data[1]])
-        if form.ref_corpname == form.corpname and form.usesubcorp and not form.ref_usesubcorp:
-            num_same_freq = 0
-            for row in ans.data:
-                if row.frq1 == row.frq2:
-                    num_same_freq += 1
-            if num_same_freq > 1:
-                ans.din_ranking_warning = True
-        return ans
-
+        return KeywordsResult(data[0], [LineDataClass.from_dict(item) for item in data[1]])
 
 
 def cached(f):
@@ -180,16 +169,10 @@ async def keywords(
         return []
 
     simple_n = 1.0  # this does not apply for CNC-custom manatee-open keywords
-    manatee_params = 'frq'
-    if manatee_is_custom_cnc():
-        manatee_params += f';{args.score_type}' if args.score_type in CNC_SCORE_TYPES else ';default'
-        if args.filter_type and args.filter_type in CNC_SCORE_TYPES:
-            manatee_params += f';{args.filter_type}/{"" if args.filter_min_value is None else args.filter_min_value}/{"" if args.filter_max_value is None else args.filter_max_value}'
-
     keyword = Keyword(
         corp.unwrap(), ref_corp.unwrap(), c_wl, rc_wl,
         simple_n, max_items, args.wlminfreq, args.wlmaxfreq, [], words,
-        manatee_params, [], [], [], None)
+        f'frq;{args.score_type}' if manatee_is_custom_cnc() and args.score_type in CNC_SCORE_TYPES else 'frq', [], [], [], None)
     results = []
     kw = keyword.next()
     while kw:

@@ -47,7 +47,7 @@ interface StructAttrsSubmit {
 export interface CorpusViewOptionsModelState {
 
     attrList:Array<ViewOptions.AttrDesc>;
-    alignCommonPosAttrs:Kontext.AlignCommonPosAttrs;
+    alignCommonPosAttrs:Array<string>;
     selectAllAttrs:boolean;
     structList:Array<ViewOptions.StructDesc>;
     structAttrs:ViewOptions.AvailStructAttrs;
@@ -105,7 +105,7 @@ export class CorpusViewOptionsModel extends StatelessModel<CorpusViewOptionsMode
                 basePosAttr: layoutModel.getConf<string>('baseAttr'),
                 baseViewAttr: layoutModel.getConf<string>('baseViewAttr') ||
                     layoutModel.getConf<string>('baseAttr'),
-                alignCommonPosAttrs: layoutModel.getConf<Kontext.AlignCommonPosAttrs>('AlignCommonPosAttrs'),
+                alignCommonPosAttrs: layoutModel.getConf<Array<string>>('AlignCommonPosAttrs'),
                 qsEnabled: true,
                 qsPluginAvaiable: layoutModel.pluginTypeIsActive(PluginName.QUERY_SUGGEST),
                 qsProviders

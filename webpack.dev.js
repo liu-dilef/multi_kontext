@@ -53,9 +53,9 @@ export default (env) => merge(common.wpConf(env), {
             publicPath: (process.env.DEV_PUBLIC_PATH === undefined ? common.PUBLIC_PATH : process.env.DEV_PUBLIC_PATH)
         },
         client: {
-              webSocketURL: 'ws://kontext.korpus.test/ws',
+              webSocketURL: 'ws://localhost:8084/wds-ws',
         },
-        liveReload: true,
+        liveReload: false,
         setupMiddlewares: (middlewares, devServer) => {
             if (!devServer) {
                 throw new Error('webpack-dev-server is not defined');

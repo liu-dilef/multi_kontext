@@ -31,15 +31,13 @@ import { Actions as ViewOptionsActions } from '../options/actions.js';
 import { CorpColumn, ViewConfiguration, AjaxConcResponse,
     ServerPagination, ServerLineData, LineGroupId, attachColorsToIds,
     mapIdToIdWithColors, Line, TextChunk, PaginationActions, ConcViewMode,
-    HighlightWords, ConcQueryResponse, KWICSection,
-    detectNonUniqueKWICs} from './common.js';
+    HighlightWords, ConcQueryResponse, KWICSection} from './common.js';
 import { Actions, ConcGroupChangePayload,
     PublishLineSelectionPayload } from './actions.js';
 import { Actions as MainMenuActions } from '../mainMenu/actions.js';
 import { Block } from '../freqs/common.js';
 import { highlightConcLineTokens, importLines } from './transform.js';
 import { Actions as AudioPlayerActions } from '../audioPlayer/actions.js';
-import { AlignCommonPosAttrs } from '../../types/kontext.js';
 
 /**
  * HighlightAttrMatch specifies a single global (per page)
@@ -111,8 +109,6 @@ export interface ConcordanceModelState {
 
     lines:Array<Line>;
 
-    hasNonUniqueKWICs:boolean;
-
     highlightWordsStore:{[posAttr:string]:HighlightWords};
 
     highlightedMatches:Array<HighlightAttrMatch>;
@@ -129,8 +125,6 @@ export interface ConcordanceModelState {
     attrViewMode:ViewOptions.AttrViewMode;
 
     showLineNumbers:boolean;
-
-    fixedAuxColums:boolean;
 
     kwicCorps:Array<string>;
 
@@ -204,7 +198,9 @@ export interface ConcordanceModelState {
 
     mergedCtxAttrs:Array<[string, number]>;
 
-    alignCommonPosAttrs:AlignCommonPosAttrs;
+    alignCommonPosAttrs:Array<string>;
+
+    alignAttrsMismatchModalVisible:boolean;
 
     tokenLinks:Array<{
         [tokenId:string]:{
@@ -217,10 +213,13 @@ export interface ConcordanceModelState {
     textDirectionRTL:boolean;
 
     shareLinkProps:{url:string}|null;
+
+    videoPopupVisible:boolean;
+
+    videoPopupUrl:string|null;
+
+    videoPopupStartSeconds:number|null;
 }
-
-
-const LOCAL_STORAGE_AUX_COL_KEY = 'kontext.conc.aux_col';
 
 
 /**
@@ -246,16 +245,9 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         dispatcher:IFullActionControl,
         saveModel:ConcSaveModel,
         lineViewProps:ViewConfiguration,
-        initialData:Array<ServerLineData>
+        initialData:Array<ServerLineData>,
     ) {
         const viewAttrs = layoutModel.getConcArgs().attrs;
-        const lines = importLines(
-            initialData,
-            viewAttrs.indexOf(lineViewProps.baseViewAttr) - 1,
-            lineViewProps.mergedAttrs,
-            lineViewProps.mergedCtxAttrs,
-
-        );
         super(
             dispatcher,
             {
@@ -272,8 +264,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 concSize: lineViewProps.concSummary.concSize,
                 concId: layoutModel.getConf<string>('concPersistenceOpId'),
                 baseViewAttr: lineViewProps.baseViewAttr,
-                lines,
-                hasNonUniqueKWICs: detectNonUniqueKWICs(lines),
+                lines: importLines(initialData, viewAttrs.indexOf(lineViewProps.baseViewAttr) - 1, lineViewProps.mergedAttrs, lineViewProps.mergedCtxAttrs),
                 highlightWordsStore: {},
                 highlightedMatches: [],
                 highlightedMatchConcId: null,
@@ -299,15 +290,25 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 kwicDetailVisible: false,
                 refDetailVisible: false,
                 lineSelOptionsVisible: false,
-                fixedAuxColums: lineViewProps.FixedAuxColums,
                 syntaxViewVisible: false,
                 forceScroll: null,
                 mergedAttrs: lineViewProps.mergedAttrs,
                 mergedCtxAttrs: lineViewProps.mergedAttrs,
                 alignCommonPosAttrs: lineViewProps.alignCommonPosAttrs,
+                alignAttrsMismatchModalVisible: !pipe(
+                    lineViewProps.mergedAttrs,
+                    List.filter(
+                        ([item, _]) => List.findIndex(
+                            item2 => item === item2, lineViewProps.alignCommonPosAttrs) === -1
+                    ),
+                    List.empty()
+                ),
                 tokenLinks: List.map(_ => ({}), lineViewProps.CorporaColumns),
                 textDirectionRTL: layoutModel.getConf<boolean>('TextDirectionRTL'),
                 shareLinkProps:null,
+                videoPopupVisible: false,
+                videoPopupUrl: null,
+                videoPopupStartSeconds: null,
                 treatAsSlowQuery: lineViewProps.TreatAsSlowQuery,
                 altCorpus: lineViewProps.AltCorpus
             }
@@ -655,30 +656,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         );
 
         this.addActionHandler(
-            ViewOptionsActions.GeneralChangeRefMaxWidthAndSubmit,
-            action => {
-                this.changeState(
-                    state => {
-                        state.refMaxWidth = action.payload.value;
-                    }
-                )
-            }
-        )
-
-        this.addActionHandler(
-            ViewOptionsActions.GeneralChangeRefMaxWidthAndSubmitDone,
-            action => {
-                this.pushHistoryState({
-                    name: Actions.ReloadConc.name,
-                    payload: {
-                        concId: this.state.concId,
-                        viewMode: this.state.viewMode
-                    }
-                });
-            }
-        );
-
-        this.addActionHandler(
             ViewOptionsActions.SaveSettingsDone,
             action => {
                 if (!action.error) {
@@ -699,6 +676,11 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                                     queryChainSize: List.size(resp.query_overview)
                                 }
                             });
+                            this.changeState(
+                                state => {
+                                    this.reevaluateAlignAttrsMismatch(state);
+                                }
+                            )
                         },
                         error: err => {
                             this.layoutModel.showMessage('error', err);
@@ -716,7 +698,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                         state.showLineNumbers = action.payload.showLineNumbers;
                         state.currentPage = 1;
                         state.refMaxWidth = action.payload.refMaxWidth;
-                        state.fixedAuxColums = action.payload.fixedAuxColumns;
                     });
                     this.loadConcPage().subscribe({
                         next: ([resp,]) => {
@@ -857,18 +838,42 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         );
 
         this.addActionHandler(
+            Actions.ShowVideoPopup,
+            action => {
+                this.changeState(state => {
+                    state.videoPopupVisible = true;
+                    state.videoPopupUrl = action.payload.videoUrl;
+                    state.videoPopupStartSeconds = action.payload.startSeconds;
+                    state.forceScroll = window.scrollY;
+                });
+            }
+        );
+
+        this.addActionHandler(
+            Actions.CloseVideoPopup,
+            action => {
+                this.changeState(state => {
+                    state.videoPopupVisible = false;
+                    state.videoPopupUrl = null;
+                    state.videoPopupStartSeconds = null;
+                    state.forceScroll = window.scrollY;
+                });
+            }
+        );
+
+        this.addActionHandler(
             Actions.SelectLine,
             action => {
-                const s1 = this.state;
                 this.changeState(state => {
                     state.forceScroll = window.scrollY;
-                    const srchIdx = List.findIndex(
-                        v => v.languages[0].tokenNumber === action.payload.tokenNumber,
-                        state.lines,
+                    state.lines = List.map(
+                        line => ({
+                            ...line,
+                            lineGroup: action.payload.tokenNumber ===
+                                    line.languages[0].tokenNumber ?
+                                        action.payload.value : line.lineGroup}),
+                        state.lines
                     );
-                    if (srchIdx > -1) {
-                        state.lines[srchIdx].lineGroup = action.payload.value;
-                    }
                 });
             }
         );
@@ -1099,6 +1104,19 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             }
         );
 
+        this.addMultiActionHandler(
+            [
+                Actions.CloseAlignAttrsMismatchModal,
+                ViewOptionsActions.UnsetAttributesAndSave
+            ],
+            action => {
+                this.changeState(
+                    state => {
+                        state.alignAttrsMismatchModalVisible = false;
+                    }
+                );
+            }
+        );
     }
 
     private highlightTokenLink(
@@ -1142,6 +1160,17 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         );
     }
 
+    private reevaluateAlignAttrsMismatch(state:ConcordanceModelState) {
+        state.alignAttrsMismatchModalVisible = !pipe(
+            state.mergedAttrs,
+            List.filter(
+                ([item, _]) => List.findIndex(
+                    item2 => item === item2, state.alignCommonPosAttrs) === -1
+            ),
+            List.empty()
+        );
+    }
+
     private reapplyTokenLinkHighlights(state:ConcordanceModelState) {
         List.forEach(
             (v, i) => {
@@ -1168,15 +1197,18 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
     private applyLineSelections(data:PublishLineSelectionPayload):void {
         this.changeState(state => {
             state.forceScroll = window.scrollY;
-            List.forEach(
-                ([tokenNum,,lineGroup]) => {
-                    const srchIdx = List.findIndex(x => x.languages[0].tokenNumber === tokenNum, state.lines);
-                    if (srchIdx > -1) {
-                        state.lines[srchIdx].lineGroup = lineGroup;
-                    }
-
+            state.lines = List.map(
+                line => {
+                    const srch = List.find(
+                        ([tokenNum,,]) => line.languages[0].tokenNumber === tokenNum,
+                        data.selections
+                    );
+                    return {
+                        ...line,
+                        lineGroup: srch ? srch[2] : line.lineGroup
+                    };
                 },
-                data.selections
+                state.lines
             );
         });
     }

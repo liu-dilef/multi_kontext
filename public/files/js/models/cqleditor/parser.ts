@@ -27,14 +27,14 @@ import { ParsedAttr, ParsedPQItem, RuleCharMap } from './rules.js';
 export type { ParsedAttr, ParsedPQItem } from './rules.js';
 
 export function emptyAST():AST {
-    return {withinOrContainingList: [], sequence: []};
+    return {withinOrContainingList: [], sequence: {seqList: []}};
 }
 
 export function isTokenlessQuery(ast:AST):boolean {
     return pipe(
-        Array.isArray(ast.sequence) ? ast.sequence : [],
+        ast.sequence?.seqList || [],
         List.flatMap(
-            x => x
+            x => x.repetitionList
         ),
         List.foldl(
             ([numTokens, numTags], x) => tuple(

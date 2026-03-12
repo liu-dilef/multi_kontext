@@ -25,8 +25,6 @@ import { Actions } from './actions.js';
 import { Actions as QueryActions } from '../query/actions.js';
 import { IUnregistrable } from '../common/common.js';
 import { Actions as GlobalActions } from '../common/actions.js';
-import React from 'react';
-import { RichTextTranslator } from '../../app/l10n.js';
 
 
 
@@ -52,24 +50,16 @@ const availableTips = [
 ];
 
 export interface ForcedTip {
-    message:string | React.ReactNode | Array<string | React.ReactNode>;
+    message:string;
     priority:number;
 }
 
 export interface UsageTipsState {
     availableTips:Array<{messageId:string; category:UsageTipCategory[]}>;
-    currentHints:{[key in UsageTipCategory]:string | React.ReactNode | Array<string | React.ReactNode>};
+    currentHints:{[key in UsageTipCategory]:string};
     hintsPointers:{[key in UsageTipCategory]:number};
     forcedTip:ForcedTip|null;
-    concHintsVisible:boolean;
 }
-
-
-const supportedFormatting = {
-    strong: (chunks:Array<React.ReactNode>) => React.createElement('strong', null, chunks),
-    code: (chunks:Array<React.ReactNode>) => React.createElement('code', null, chunks),
-    p: (chunks:Array<React.ReactNode>) => React.createElement('p', null, chunks)
-};
 
 
 /**
@@ -77,11 +67,9 @@ const supportedFormatting = {
  */
 export class UsageTipsModel extends StatelessModel<UsageTipsState> implements IUnregistrable {
 
-    private translatorFn:RichTextTranslator;
+    private translatorFn:(s:string)=>string;
 
-    private static readonly CONC_HINTS_STATE_LS_KEY = 'conc-hints-visible';
-
-    constructor(dispatcher:IActionDispatcher, translatorFn:RichTextTranslator) {
+    constructor(dispatcher:IActionDispatcher, translatorFn:(s:string)=>string) {
         const pointers = pipe(
             [UsageTipCategory.CONCORDANCE, UsageTipCategory.QUERY, UsageTipCategory.CQL_QUERY],
             List.map(cat => {
@@ -100,52 +88,35 @@ export class UsageTipsModel extends StatelessModel<UsageTipsState> implements IU
                         const avail = availableTips.filter(v => v.category.includes(cat));
                         return tuple(
                             cat,
-                            avail.length > 0 ? translatorFn(
-                                avail[pointers[cat]].messageId,
-                                supportedFormatting,
-                            ) : null
+                            avail.length > 0 ? translatorFn(avail[pointers[cat]].messageId) : null
                         );
                     }),
                     Dict.fromEntries()
                 ),
                 availableTips,
-                forcedTip: null,
-                concHintsVisible: localStorage.getItem(UsageTipsModel.CONC_HINTS_STATE_LS_KEY) === '1'
+                forcedTip: null
             }
         );
         this.translatorFn = translatorFn;
 
-        this.addActionHandler(
-            Actions.NextQueryHint,
+        this.addActionHandler<typeof Actions.NextQueryHint>(
+            Actions.NextQueryHint.name,
             (state, action) => {
                 this.setNextHint(state, UsageTipCategory.QUERY);
             }
         );
 
-        this.addActionHandler(
-            Actions.NextCqlQueryHint,
+        this.addActionHandler<typeof Actions.NextCqlQueryHint>(
+            Actions.NextCqlQueryHint.name,
             (state, action) => {
                 this.setNextHint(state, UsageTipCategory.CQL_QUERY);
             }
         );
 
-        this.addActionHandler(
-            Actions.NextConcHint,
+        this.addActionHandler<typeof Actions.NextConcHint>(
+            Actions.NextConcHint.name,
             (state, action) => {
                 this.setNextHint(state, UsageTipCategory.CONCORDANCE);
-            }
-        );
-
-        this.addActionHandler(
-            Actions.ToggleConcHints,
-            (state, action) => {
-                state.concHintsVisible = !state.concHintsVisible;
-            },
-            (state, action, dispatch) => {
-                localStorage.setItem(
-                    UsageTipsModel.CONC_HINTS_STATE_LS_KEY,
-                    state.concHintsVisible ? '1' : '0'
-                );
             }
         );
 
@@ -192,9 +163,7 @@ export class UsageTipsModel extends StatelessModel<UsageTipsState> implements IU
         state.forcedTip = null;
         state.hintsPointers[category] = (curr + 1) % avail.length;
         state.currentHints[category] = this.translatorFn(
-            avail[state.hintsPointers[category]].messageId,
-            supportedFormatting,
-        );
+            avail[state.hintsPointers[category]].messageId);
     }
 
 }

@@ -34,11 +34,6 @@
                 </a:documentation>
                 <text />
             </element>
-            <optional>
-                <element name="frodo_url">
-                    <text />
-                </element>
-            </optional>
         </element>
     </start>
 </grammar>

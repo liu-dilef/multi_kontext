@@ -293,6 +293,7 @@ export const TooltipBox = styled.section`
                 max-width: 0;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             td.status {
@@ -417,14 +418,11 @@ export const InlineHelp = styled.span`
 export const Abbrevation = styled.span`
 
     display: inline-block;
+    text-decoration: none;
+    cursor: help;
     border-color: ${theme.colorDefaultText};
     border-style: dotted;
     border-width: 0 0 1px 0;
-
-    abbr {
-        cursor: help;
-        text-decoration: none;
-    }
 `;
 
 // ---------------- <ErrorBoundary /> --------------------------------------

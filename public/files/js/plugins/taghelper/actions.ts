@@ -19,7 +19,6 @@
  */
 
 import { Action } from 'kombo';
-import { KVAttrConf } from './common.js';
 
 export class Actions {
 
@@ -93,12 +92,12 @@ export class Actions {
         name: 'TAGHELPER_SET_ACTIVE_TAG'
     };
 
-    static KVToggleUDFeat:Action<{
+    static KVSelectCategory:Action<{
         tagsetId:string;
         sourceId:string;
         value:string;
     }> = {
-        name: 'TAGHELPER_TOGGLE_UD_FEAT'
+        name: 'TAGHELPER_SELECT_CATEGORY'
     };
 
     static KVAddFilter:Action<{
@@ -106,7 +105,6 @@ export class Actions {
         sourceId:string;
         name:string;
         value:string;
-        isUdFeat:boolean;
     }> = {
         name: 'TAGHELPER_ADD_FILTER'
     };
@@ -116,7 +114,6 @@ export class Actions {
         sourceId:string;
         name:string;
         value:string;
-        isUdFeat:boolean;
     }> = {
         name: 'TAGHELPER_REMOVE_FILTER'
     };
@@ -124,27 +121,9 @@ export class Actions {
     static KVGetInitialDataDone:Action<{
         tagsetId:string;
         sourceId:string;
-        attrs:{[key:string]:Array<string>};
-        udFeats:{[key:string]:Array<string>};
-        attrConf:Array<KVAttrConf>;
+        result:{[key:string]:Array<string>};
     }> = {
         name: 'TAGHELPER_KV_GET_INITIAL_DATA_DONE'
-    };
-
-    static KVSetAttrFilter:Action<{
-        sourceId:string;
-        attr:string;
-        value:string;
-    }> = {
-        name: 'TAGHELPER_KW_SET_ATTR_FILTER'
-    };
-
-    static KVSetUDFeatsFilter:Action<{
-        sourceId:string;
-        attr:string;
-        value:string;
-    }> = {
-        name: 'TAGHELPER_KW_SET_UD_FEATS_FILTER'
     };
 
     static KVGetInitialDataNOP:Action<{
@@ -156,10 +135,7 @@ export class Actions {
     static KVGetFilteredDataDone:Action<{
         tagsetId:string;
         sourceId:string;
-        activeAttr?:string;
-        activeUdFeat?:string;
-        attrs:{[key:string]:Array<string>};
-        udFeats:{[key:string]:Array<string>};
+        result:{[key:string]:Array<string>};
     }> = {
         name: 'TAGHELPER_KV_GET_FILTERED_DATA_DONE'
     };

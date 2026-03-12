@@ -1,5 +1,6 @@
 <kontext>
     <corplist>
         <corpus ident="SUSANNE"/>
+        <corpus ident="IMPAQTS"/>
     </corplist>
 </kontext>

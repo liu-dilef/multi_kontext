@@ -50,7 +50,6 @@ export interface KeywordsResultState {
     manateeIsCustomCNC:boolean;
     attr:string;
     saveFormActive:boolean;
-    dinRankingWarning:boolean;
 }
 
 export interface KeywordsResultModelArgs {
@@ -67,7 +66,6 @@ export interface KeywordsResultModelArgs {
 export interface DataAjaxResponse extends Kontext.AjaxResponse {
     data:Array<Keyword>;
     total:number;
-    din_ranking_warning:boolean;
     query_id:string;
     kwpagesize:number;
     kwpage:number;
@@ -112,7 +110,6 @@ export class KeywordsResultModel extends StatelessModel<KeywordsResultState> {
                 maxItems: layoutModel.getConf<number>('KwMaxItems'),
                 attr,
                 saveFormActive: false,
-                dinRankingWarning: layoutModel.getConf<boolean>('DinRankingWarning') || false,
             }
         );
         this.layoutModel = layoutModel;
@@ -174,7 +171,6 @@ export class KeywordsResultModel extends StatelessModel<KeywordsResultState> {
                     state.data = action.payload.data;
                     state.kwpage = action.payload.page;
                     state.kwsort = action.payload.sort;
-                    state.dinRankingWarning = action.payload.dinRankingWarning;
                 }
             }
         );
@@ -219,7 +215,6 @@ export class KeywordsResultModel extends StatelessModel<KeywordsResultState> {
                         page: resp.kwpage,
                         sort: resp.kwsort,
                         data: resp.data,
-                        dinRankingWarning: resp.din_ranking_warning,
                     }
                 });
             },

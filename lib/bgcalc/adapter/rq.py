@@ -18,7 +18,7 @@ import logging
 import re
 import sys
 from dataclasses import dataclass
-from typing import Any, List, Type, TypeVar, Union, Optional
+from typing import Any, List, Type, TypeVar, Union
 
 import ujson as json
 from action.errors import UserReadableException
@@ -114,7 +114,7 @@ class ResultWrapper(AbstractResultWrapper[T]):
                     break
                 elif self._job.is_failed:
                     self._job.refresh()
-                    self.result = self._infer_error(self._job.latest_result(), self._job.id)
+                    self.result = self._infer_error(self._job.exc_info, self._job.id)
                     break
                 elif timeout and total_time > timeout:
                     self.result = Exception(f'Task result timeout: {self._job}')
@@ -129,12 +129,6 @@ class ResultWrapper(AbstractResultWrapper[T]):
         if self._job and self._job.get_status():
             return ResultWrapper.status_map[self._job.get_status()]
         return 'FAILURE'
-
-    @property
-    def func_name(self) -> Optional[str]:
-        if self._job:
-            return self._job.func_name
-        return None
 
     @property
     def id(self):
@@ -210,15 +204,15 @@ class RqClient(AbstractBgClient):
     def control(self):
         return self._control
 
-    def send_task_sync(self, name, ans_type: Type[T], args=None, time_limit=None, soft_time_limit=None, task_id=None) -> ResultWrapper[T]:
+    def send_task_sync(self, name, ans_type: Type[T], args=None, time_limit=None, soft_time_limit=None) -> ResultWrapper[T]:
         tl = self._resolve_limit(time_limit, soft_time_limit)
         try:
-            job = self.queue.enqueue(f'{self.prefix}.{name}', job_timeout=tl, args=args, job_id=task_id)
+            job = self.queue.enqueue(f'{self.prefix}.{name}', job_timeout=tl, args=args)
             return ResultWrapper(job)
         except Exception as ex:
             logging.getLogger(__name__).error(ex)
 
-    async def send_task(self, name, ans_type: Type[T], args=None, time_limit=None, soft_time_limit=None, task_id=None) -> ResultWrapper[T]:
+    async def send_task(self, name, ans_type: Type[T], args=None, time_limit=None, soft_time_limit=None) -> ResultWrapper[T]:
         """
         Send a task to the worker.
 
@@ -227,7 +221,7 @@ class RqClient(AbstractBgClient):
         selected. Otherwise, the non-None is applied.
         """
         return await asyncio.get_event_loop().run_in_executor(
-            None, self.send_task_sync, name, ans_type, args, time_limit, soft_time_limit, task_id)
+            None, self.send_task_sync, name, ans_type, args, time_limit, soft_time_limit)
 
     def get_task_error(self, task_id):
         try:

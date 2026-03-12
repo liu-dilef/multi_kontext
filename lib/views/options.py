@@ -16,6 +16,7 @@
 import collections
 from dataclasses import fields
 
+import settings
 from action.argmapping import GeneralOptionsArgs, WidectxArgsMapping
 from action.control import http_action
 from action.krequest import KRequest
@@ -35,7 +36,6 @@ def _set_new_viewopts(
         newctxsize=0,
         ctxunit='',
         line_numbers=False,
-        fixed_aux_columns=False,
         shuffle=False,
         wlpagesize=0,
         fpagesize=0,
@@ -56,7 +56,6 @@ def _set_new_viewopts(
         amodel.args.kwicleftctx = f'-{new_kwicright}'
         amodel.args.kwicrightctx = new_kwicright
     amodel.args.line_numbers = line_numbers
-    amodel.args.fixed_aux_columns = fixed_aux_columns
     amodel.args.shuffle = int(shuffle)
     if wlpagesize <= 0:
         raise ValueError('invalid value for wlpagesize')
@@ -72,7 +71,7 @@ def _set_new_viewopts(
         raise ValueError('invalid value for pqueryitemsperpage')
     amodel.args.pqueryitemsperpage = pqueryitemsperpage
     amodel.args.rich_query_editor = rich_query_editor
-    if ref_max_width < 0:
+    if ref_max_width <= 0:
         raise ValueError('invalid value for ref_max_width')
     amodel.args.ref_max_width = ref_max_width
     if subcpagesize <= 0:
@@ -202,7 +201,6 @@ async def viewopts(amodel: UserActionModel, req: KRequest, resp: KResponse):
         newctxsize=amodel.args.kwicleftctx[1:],
         ctxunit='@pos',
         line_numbers=amodel.args.line_numbers,
-        fixed_aux_columns=amodel.args.fixed_aux_columns,
         wlpagesize=amodel.args.wlpagesize,
         fpagesize=amodel.args.fpagesize,
         fdefault_view=amodel.args.fdefault_view,
@@ -214,6 +212,7 @@ async def viewopts(amodel: UserActionModel, req: KRequest, resp: KResponse):
         kwpagesize=amodel.args.kwpagesize,
     )
 
+
 @bp.route('/viewoptsx', ['POST'])
 @http_action(return_type='json', action_model=UserActionModel)
 async def viewoptsx(amodel: UserActionModel, req: KRequest, resp: KResponse):
@@ -224,7 +223,6 @@ async def viewoptsx(amodel: UserActionModel, req: KRequest, resp: KResponse):
             newctxsize=req.json.get('newctxsize'),
             ctxunit=req.json.get('ctxunit'),
             line_numbers=req.json.get('line_numbers'),
-            fixed_aux_columns=req.json.get('fixed_aux_columns'),
             wlpagesize=req.json.get('wlpagesize'),
             fpagesize=req.json.get('fpagesize'),
             fdefault_view=req.json.get('fdefault_view'),
@@ -240,21 +238,6 @@ async def viewoptsx(amodel: UserActionModel, req: KRequest, resp: KResponse):
         return {}
     except ValueError as ex:
         raise UserReadableException(ex, code=422)
-
-
-@bp.route('/set-aux-col-width', ['POST'])
-@http_action(return_type='json', action_model=UserActionModel)
-async def setAuxColWidth(amodel: UserActionModel, req: KRequest, resp: KResponse):
-    try:
-        width = int(req.args.get('value'))
-        if width < 0 or width > 100:
-            raise ValueError()
-        amodel.args.ref_max_width = width
-        await amodel.save_options(['ref_max_width'])
-        return {}
-    except ValueError as ex:
-        raise UserReadableException(ex, code=422)
-
 
 
 @bp.route('/toggle_conc_dashboard', ['POST'])

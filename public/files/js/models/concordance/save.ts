@@ -212,7 +212,7 @@ export class ConcSaveModel extends StatefulModel<ConcSaveModelState> {
         this.saveLinkFn(
             undefined,
             this.state.saveformat,
-            taskId => this.layoutModel.createActionUrl('saveconc', {task_id: taskId, ...args}),
+            this.layoutModel.createActionUrl('saveconc', args)
         );
     }
 }

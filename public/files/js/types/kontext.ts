@@ -74,17 +74,6 @@ export function structsAndAttrsToStructAttrList(structsAndAttrs: StructsAndAttrs
     )
 }
 
-export type AttrAvailability = Array<[string, boolean]>;
-
-/**
- * AlignCommonPosAttrs specifies which positional attributes are present
- * in which corpora if we consider an attribute union across all the active
- * (aligned) corpora.
- */
-export interface AlignCommonPosAttrs {
-    [corpname:string]:AttrAvailability;
-}
-
 export type ResponseFormat = 'plain'|'json'|'template'|'xml';
 
 export type QuerySupertype = 'conc'|'pquery'|'wlist'|'kwords';
@@ -386,13 +375,7 @@ export interface AsyncTaskInfo<T=GeneralProps> {
     category:string;
     status:AsyncTaskStatus;
     created:number;
-
-    /**
-     * message is either an additional/optional end-user information about the task
-     * if everything went well or an error message in case of status 'FAILURE'
-     * (Worker's "result" property converted to a string)
-     */
-    message:string;
+    error:string; // = Worker's "result" property in case status == 'FAILURE'
     args:T;
     url:string;
 }

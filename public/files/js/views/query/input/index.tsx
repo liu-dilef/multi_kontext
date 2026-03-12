@@ -20,7 +20,7 @@
  */
 
 import * as React from 'react';
-import { IActionDispatcher, BoundWithProps, useModel } from 'kombo';
+import { IActionDispatcher, BoundWithProps } from 'kombo';
 import { Dict, Keyboard, List, pipe, tuple } from 'cnc-tskit';
 
 import { init as keyboardInit } from '../virtualKeyboard/index.js';
@@ -30,12 +30,12 @@ import { WithinBuilderModel, WithinBuilderModelState } from '../../../models/que
 import * as PluginInterfaces from '../../../types/plugins/index.js';
 import * as Kontext from '../../../types/kontext.js';
 import { formEncodeDefaultAttr, QueryFormModel, QueryFormModelState } from '../../../models/query/common.js';
-import { UsageTipsModel, UsageTipCategory } from '../../../models/usageTips/index.js';
+import { UsageTipsModel, UsageTipsState, UsageTipCategory } from '../../../models/usageTips/index.js';
 import { VirtualKeyboardModel } from '../../../models/query/virtualKeyboard.js';
 import { Actions, QueryFormType } from '../../../models/query/actions.js';
 import { Actions as HintActions } from '../../../models/usageTips/actions.js';
 import { Actions as HistoryActions } from '../../../models/searchHistory/actions.js';
-import { isSimpleQuery, QueryType, TokenSuggestions } from '../../../models/query/query.js';
+import { isAdvancedQuery, isSimpleQuery, QueryType, TokenSuggestions } from '../../../models/query/query.js';
 import { init as queryStructureInit } from '../structure/index.js';
 import { init as shViewInit } from '../../searchHistory/simple/index.js';
 import * as S from './style.js';
@@ -207,9 +207,7 @@ export function init({
 
     // -------------- <QueryHints /> --------------------------------------------
 
-    const QueryHints:React.FC<{queryType:QueryType}> = (props) => {
-
-        const state = useModel(queryHintModel);
+    const QueryHints:React.FC<{queryType:QueryType} & UsageTipsState> = (props) => {
 
         const clickHandler = () => {
             dispatcher.dispatch<typeof HintActions.NextQueryHint|typeof HintActions.NextCqlQueryHint>({
@@ -221,15 +219,16 @@ export function init({
             <S.QueryHints>
                 <span className="hint">
                     <span className="tip">
-                        {state.forcedTip ?
+                        {props.forcedTip ?
                             '\u203C\u00a0' + he.translate('global__advice') :
                             he.translate('global__tip')
                         }
                     </span>
-                    <span dangerouslySetInnerHTML={{__html:
-                            state.forcedTip ?
-                                state.forcedTip.message :
-                                state.currentHints[props.queryType === 'simple' ? UsageTipCategory.QUERY : UsageTipCategory.CQL_QUERY]}} />
+                    {
+                        props.forcedTip ?
+                            props.forcedTip.message :
+                            props.currentHints[props.queryType === 'simple' ? UsageTipCategory.QUERY : UsageTipCategory.CQL_QUERY]
+                    }
                 </span>
                 <span className="next-hint">
                     (
@@ -241,6 +240,9 @@ export function init({
             </S.QueryHints>
         );
     };
+
+    const BoundQueryHints = BoundWithProps<{queryType:QueryType}, UsageTipsState>(QueryHints, queryHintModel);
+
 
     // ------------------- <TRQueryTypeField /> -----------------------------
 
@@ -1145,7 +1147,7 @@ export function init({
                                     : null
                             }
                         </div>
-                        <QueryHints queryType={queryObj.qtype} />
+                        <BoundQueryHints queryType={queryObj.qtype} />
                     </S.QueryArea>
                     <AdvancedFormFieldset
                             uniqId="query-options-section"

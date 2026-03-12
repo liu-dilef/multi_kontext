@@ -20,7 +20,7 @@
 
 import { List } from 'cnc-tskit';
 import { ComponentHelpers } from '../../types/kontext.js';
-import { IActionDispatcher, useModel } from 'kombo';
+import { Bound, IActionDispatcher } from 'kombo';
 import * as React from 'react';
 import { Actions } from './actions.js';
 import { SyntaxTreeModel, SyntaxTreeModelState } from './model.js';
@@ -34,7 +34,7 @@ export function init(
     dispatcher:IActionDispatcher,
     he:ComponentHelpers,
     model:SyntaxTreeModel
-):React.FC {
+):React.ComponentClass {
 
     const layoutViews = he.getLayoutViews();
 
@@ -57,6 +57,23 @@ export function init(
     function renderTree(state:SyntaxTreeModelState, target:HTMLElement):{fullWidth:boolean} {
         while (target.firstChild) {
             target.removeChild(target.firstChild);
+        }
+        if (state.sentenceTokens.length > 1) {
+            const corpusSwitch = window.document.createElement('select') as HTMLSelectElement;
+            corpusSwitch.classList.add('corpus-switch');
+            corpusSwitch.onchange = corpusSelectHandler;
+            target.append(corpusSwitch);
+            target.append(window.document.createElement('hr'));
+            List.forEach(
+                (sentenceToken, i) => {
+                    const option = window.document.createElement('option');
+                    option.value = sentenceToken.corpus;
+                    option.label = sentenceToken.corpus;
+                    option.selected = i === state.activeToken;
+                    corpusSwitch.append(option);
+                },
+                state.sentenceTokens
+            );
         }
         const treexFrame = window.document.createElement('div');
         treexFrame.id = 'treex-frame';
@@ -97,17 +114,14 @@ export function init(
         );
     }
 
-    // -------------------- <SyntaxViewPane /> ---------------------
-
-    const SyntaxViewPane:React.FC = (props) => {
+    const SyntaxViewPane:React.FC<SyntaxTreeModelState> = (props) => {
         const renderElm = React.useRef(null);
         const [sizeBtnVisible, changeState] = React.useState(false);
-        const state = useModel(model);
 
         React.useEffect(
             () => {
-                if (state.data) {
-                    const renderedInfo = renderTree(state, renderElm.current);
+                if (props.data) {
+                    const renderedInfo = renderTree(props, renderElm.current);
                     if (renderedInfo.fullWidth) {
                         if (sizeBtnVisible !== true) changeState(true);
                     } else {
@@ -117,37 +131,17 @@ export function init(
             }
         );
 
-        const handleCorpChange = (corpusId:string) => {
-            dispatcher.dispatch<typeof Actions.SwitchCorpus>({
-                name: Actions.SwitchCorpus.name,
-                payload: {
-                    corpusId
-                }
-            });
-        };
-
-        const menuItems = List.map(
-            (v, i) => ({
-                id: v.corpus,
-                label: v.corpus
-            }),
-            state.sentenceTokens
-        );
-
         return (
             <div className="syntax-tree-frame">
-                <layoutViews.TabView items={menuItems} callback={handleCorpChange}>
-                    {List.map(v => <div key={`item:${v.corpus}`} />, state.sentenceTokens)}
-                </layoutViews.TabView>
                 <div ref={renderElm}>
-                    {state.data ? null : <layoutViews.AjaxLoaderImage />}
+                    {props.data ? null : <layoutViews.AjaxLoaderImage />}
                 </div>
                 {
                     sizeBtnVisible ?
                         <>
                             <hr/>
                             <button type="button" className="util-button" onClick={extendGraphHandler}>
-                                {state.expanded ?
+                                {props.expanded ?
                                     he.translate('syntaxViewer2__fit_to_view_button') :
                                     he.translate('syntaxViewer2__expand_button')
                                 }
@@ -159,5 +153,5 @@ export function init(
         );
     }
 
-    return SyntaxViewPane;
+    return Bound(SyntaxViewPane, model);
 }

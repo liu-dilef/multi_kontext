@@ -84,7 +84,7 @@ export interface QueryFormProperties extends GeneralQueryFormProperties, QueryFo
     suggestionsConfigured:boolean;
     simpleQueryDefaultAttrs:{[corpname:string]:Array<string|Array<string>>};
     concViewPosAttrs:Array<string>;
-    alignCommonPosAttrs:Kontext.AlignCommonPosAttrs;
+    alignCommonPosAttrs:Array<string>;
     concPreflight:Kontext.PreflightConf|null;
 }
 
@@ -329,7 +329,7 @@ export interface FirstQueryFormModelState extends QueryFormModelState {
      */
      concViewPosAttrs:Array<string>;
 
-     alignCommonPosAttrs:Kontext.AlignCommonPosAttrs;
+     alignCommonPosAttrs:Array<string>;
 
      concPreflight:Kontext.PreflightConf|null;
 }
@@ -605,13 +605,7 @@ export class FirstQueryFormModel extends QueryFormModel<FirstQueryFormModelState
                         } else {
                             window.location.href = this.createViewUrl(
                                 response.conc_persistence_op_id,
-                                // TODO - Removing the "refs" and "structs" variables below is
-                                // essentially a hack that exploits the fact that "refs" (and other
-                                // necessary variables) are loaded from the user's settings with
-                                // each request. And because its "refs" and "structs" which can
-                                // easily get big enough to break URL parsing on a webserver,
-                                // we delete them as a precaution.
-                                {...response.conc_args, refs: undefined, structs: undefined},
+                                response.conc_args,
                                 false,
                                 true
                             );

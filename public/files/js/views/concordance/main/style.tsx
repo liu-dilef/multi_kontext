@@ -197,16 +197,7 @@ export const ConcSummary = styled.div`
 
 export const ConcTopBar = styled(ConcVerticalBar)`
 
-    display: flex;
-    flex-direction: column;
     padding: 0.3em 0 0 0;
-
-    .aux-col-control {
-        display: flex;
-        align-items: center;
-        padding-left: 1em;
-        padding-bottom: 0.2em;
-    }
 
     .info-level::after {
         content: "";
@@ -220,6 +211,7 @@ export const ConcTopBar = styled(ConcVerticalBar)`
         color: #00A8E8;
         padding-left: 0.3em;
         padding-right: 0.3em;
+        vertical-align: middle;
     }
 
     .selection-mode-switch {
@@ -247,7 +239,6 @@ export const LineSelectionOps = styled.div`
 
     flex-grow: 1;
     display: flex;
-    align-items: center;
 
     .lines-selection {
         white-space: nowrap;
@@ -257,16 +248,6 @@ export const LineSelectionOps = styled.div`
             vertical-align: middle;
             width: 1em;
         }
-    }
-
-    .kwic-warning img {
-        display: block;
-        width: 1em;
-        margin-left: 0.4em;
-    }
-
-    .util-button {
-        font-size: 0.9em;
     }
 `;
 
@@ -428,49 +409,5 @@ export const AttrMismatchModalContents = styled.div`
         padding-top: 1em;
     }
 
-`;
 
-// --------------- <AuxColumnSwitcher /> ----------------------
-
-export const AuxColumnSwitcher = styled.span`
-
-    display: flex;
-    margin-right: 0.7em;
-
-    .label {
-        margin-right: 0.4em;
-    }
-
-    .rc-slider {
-        width: 100px;
-    }
-`;
-
-// --------------- <ConcHints /> ------------------------------
-
-export const ConcHints = styled(theme.UIHints)`
-    margin-top: 0.7em;
-    margin-bottom: 0.4em;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    background-color: transparent;
-    border: none;
-    flex-grow: 1;
-
-    &.collapsed {
-        justify-content: flex-end;
-
-        a.switch {
-
-            display: flex;
-            align-items: center;
-            color: inherit;
-            text-decoration: inherit;
-
-            img {
-                margin-right: 0.3em;
-            }
-        }
-    }
 `;

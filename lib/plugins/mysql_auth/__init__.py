@@ -152,7 +152,7 @@ class MysqlAuthHandler(AbstractInternalAuth):
             return CorpusAccess(False, True, '')
         async with self._corparch_backend.cursor() as cursor:
             _, access, variant = await self._corparch_backend.corpus_access(cursor, user_dict['id'], corpus_name)
-            return CorpusAccess(False, access, variant)
+            return CorpusAccess(False, True, variant)
 
     async def permitted_corpora(self, user_dict) -> List[str]:
         async with self._corparch_backend.cursor() as cursor:

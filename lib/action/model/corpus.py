@@ -52,7 +52,7 @@ from texttypes.model import TextTypes
 
 T = TypeVar('T')
 
-async def empty_query_store(s, uh, resp):
+async def empty_query_store(s, uh, res):
     pass
 
 
@@ -64,11 +64,7 @@ class CorpusActionModel(UserActionModel):
     """
     # main menu items disabled for public users (this is applied automatically during
     # post_dispatch())
-    ANON_FORBIDDEN_MENU_ITEMS = (
-        MainMenu.NEW_QUERY('history', 'wordlist', 'keywords'),
-        MainMenu.CORPORA('my-subcorpora', 'create-subcorpus'),
-        MainMenu.SAVE, MainMenu.CONCORDANCE, MainMenu.FILTER,
-        MainMenu.FREQUENCY, MainMenu.COLLOCATIONS)
+    ANON_FORBIDDEN_MENU_ITEMS = ()
 
     LOCAL_COLL_OPTIONS = ('cattr', 'cfromw', 'ctow', 'cminfreq', 'cminbgr', 'cbgrfns', 'csortfn')
 
@@ -91,8 +87,8 @@ class CorpusActionModel(UserActionModel):
 
         self._auto_generated_conc_ops: List[Tuple[int, ConcFormArgs]] = []
 
-        self._on_query_store: List[
-            Callable[[List[str], Optional[int], KResponse[Dict[str, Any]]], Awaitable[None]]] = [empty_query_store]
+        self._on_query_store: List[Callable[[List[str], Optional[int],
+                                             Dict[str, Any]], Awaitable[None]]] = [empty_query_store]
 
         self._tt_cache = shared_data.tt_cache
 
@@ -120,7 +116,7 @@ class CorpusActionModel(UserActionModel):
     def active_q_data(self):
         return self._active_q_data
 
-    def on_query_store(self, fn: Callable[[List[str], Optional[int], KResponse[Dict[str, Any]]], Awaitable[None]]):
+    def on_query_store(self, fn: Callable[[List[str], Optional[int], Any], Awaitable[None]]):
         """
         Register a function called after a query (conc, pquery, wordlist) has been stored.
         The function arguments are:
@@ -453,40 +449,6 @@ class CorpusActionModel(UserActionModel):
         return self._tt if self._tt is not None else TextTypes(
             self.corp, self.corp.corpname, self._tt_cache, self.plugin_ctx)
 
-    async def get_all_corp_merged_posattrs(self):
-        """
-        Generate a list of all attributes from all the corpora respecting
-        the order. (We assume that the ordering is the same in all the corpora).
-        It returns map of corpora and all the attributes with presence flag:
-        {
-          "intercorp_cs": [ ('word', True), ('lemma', True), ('tag', True) ]
-          "intercorp_hs": [ ('word', True), ('lemma', False), ('tag', False) ]
-        }
-        """
-        tmp = [self.corp.get_posattrs()]
-        max_posattrs = len(self.corp.get_posattrs())
-        all_corpora = [self.corp.corpname] + self.args.align
-        for a in self.args.align:
-            align_corp = await self.cf.get_corpus(a)
-            tmp.append(align_corp.get_posattrs())
-            if len(align_corp.get_posattrs()) > max_posattrs:
-                max_posattrs = len(align_corp.get_posattrs())
-        proc_attrs = set()
-        all_attrs = []
-        ans = {}
-        for i in range(max_posattrs):
-            for j in range(len(tmp)):
-                if i >= len(tmp[j]):
-                    continue
-                if tmp[j][i] not in proc_attrs:
-                    all_attrs.append(tmp[j][i])
-                    proc_attrs.add(tmp[j][i])
-        for i, corp in enumerate(all_corpora):
-            ans[corp] = []
-            for attr in all_attrs:
-                ans[corp].append((attr, attr in tmp[i]))
-        return ans
-
     async def _add_corpus_related_globals(self, result, maincorp):
         """
         arguments:
@@ -527,7 +489,11 @@ class CorpusActionModel(UserActionModel):
                 'multisep': maincorp.get_conf(f'{n}.MULTISEP'),
             } for n in maincorp.get_conf('ATTRLIST').split(',') if n]
 
-        result['AlignCommonPosAttrs'] = await self.get_all_corp_merged_posattrs()
+        align_common_posattrs = set(self.corp.get_posattrs())
+        for a in self.args.align:
+            align_corp = await self.cf.get_corpus(a)
+            align_common_posattrs.intersection_update(align_corp.get_posattrs())
+        result['AlignCommonPosAttrs'] = list(align_common_posattrs)
 
         if maincorp.get_conf('FREQTTATTRS'):
             ttcrit_attrs = maincorp.get_conf('FREQTTATTRS')

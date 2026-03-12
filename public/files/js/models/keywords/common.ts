@@ -36,9 +36,6 @@ export interface KeywordsSubmitArgs {
     wltype:string;
     include_nonwords:boolean;
     score_type:ScoreType;
-    filter_type:ScoreType;
-    filter_min_value:number;
-    filter_max_value:number;
 }
 
 export interface KeywordsSubmitResponse {

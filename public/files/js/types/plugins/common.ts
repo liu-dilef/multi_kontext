@@ -67,12 +67,12 @@ export interface BasePlugin {
      * trigger action InboxUpdateAsyncTask.
      */
     bgDownload<T=Kontext.AjaxArgs>(
-        {name, format, datasetType, urlConstructor, contentType, args}:
+        {name, format, datasetType, url, contentType, args}:
         {
             name?:string,
             format:string,
             datasetType:DownloadType,
-            urlConstructor:(taskId:string) => string,
+            url:string,
             contentType:string,
             args?:T
         }

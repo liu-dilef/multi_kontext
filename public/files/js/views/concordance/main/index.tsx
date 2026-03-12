@@ -19,10 +19,8 @@
  */
 
 import * as React from 'react';
-import { IActionDispatcher, BoundWithProps, IModel, Bound, useModel } from 'kombo';
+import { IActionDispatcher, BoundWithProps, IModel, Bound } from 'kombo';
 import { List, pipe, tuple } from 'cnc-tskit';
-import Slider from 'rc-slider';
-import 'rc-slider/assets/index.css';
 
 import * as Kontext from '../../../types/kontext.js';
 import * as ViewOptions from '../../../types/viewOptions.js';
@@ -33,7 +31,7 @@ import { init as linesViewInit } from '../lines/index.js';
 import { init as concDetailViewsInit } from '../detail/index.js';
 import { init as concSaveViewsInit } from '../save.js';
 import { init as extendedInfoViewsInit } from '../extendedInfo/index.js';
-import { LineSelectionModel }
+import { LineSelectionModel, LineSelectionModelState }
     from '../../../models/concordance/lineSelection/index.js';
 import { ConcordanceModel, ConcordanceModelState } from '../../../models/concordance/main.js';
 import { ConcDetailModel } from '../../../models/concordance/detail.js';
@@ -42,7 +40,7 @@ import { RefsDetailModel } from '../../../models/concordance/refsDetail.js';
 import { CollFormModel } from '../../../models/coll/collForm.js';
 import { TextTypesDistModel } from '../../../models/concordance/ttdist/model.js';
 import { ConcDashboard, ConcDashboardState } from '../../../models/concordance/dashboard.js';
-import { UsageTipCategory, UsageTipsModel } from '../../../models/usageTips/index.js';
+import { UsageTipsModel } from '../../../models/usageTips/index.js';
 import { MainMenuModelState } from '../../../models/mainMenu/index.js';
 import { Actions } from '../../../models/concordance/actions.js';
 import { LineSelectionModes } from '../../../models/concordance/common.js';
@@ -51,7 +49,6 @@ import { Actions as UserActions } from '../../../models/user/actions.js';
 import * as S from './style.js';
 import { AudioPlayerModel } from '../../../models/audioPlayer/model.js';
 import { Actions as AudioPlayerActions } from '../../../models/audioPlayer/actions.js';
-import { Actions as HintActions } from '../../../models/usageTips/actions.js';
 
 
 export class ViewPageModels {
@@ -191,12 +188,9 @@ export function init({
     interface LineSelectionOpsProps {
         numLinesInLockedGroups:number;
         visible:boolean;
-        hasNonUniqueKWICs:boolean;
     }
 
-    const LineSelectionOps:React.FC<LineSelectionOpsProps> = (props) => {
-
-        const state = useModel(lineSelectionModel);
+    const _LineSelectionOps:React.FC<LineSelectionOpsProps & LineSelectionModelState> = (props) => {
 
         const _selectChangeHandler = (event) => {
             dispatcher.dispatch(
@@ -220,13 +214,13 @@ export function init({
         };
 
         const _getMsgStatus = () => {
-            if (state.isLocked) {
+            if (props.isLocked) {
                 return tuple(
-                    '',
+                    he.createStaticUrl('img/info-icon.svg'),
                     he.translate('linesel__you_have_saved_line_groups')
                 );
 
-            } else if (LineSelectionModel.numSelectedItems(state) > 0) {
+            } else if (LineSelectionModel.numSelectedItems(props) > 0) {
                 return tuple(
                     he.createStaticUrl('/img/warning-icon.svg'),
                     he.translate('linesel__you_have_unsaved_line_sel')
@@ -239,15 +233,16 @@ export function init({
 
         const _renderNumSelected = () => {
             const numSel = props.numLinesInLockedGroups > 0 ?
-                props.numLinesInLockedGroups : LineSelectionModel.numSelectedItems(state);
+                props.numLinesInLockedGroups : LineSelectionModel.numSelectedItems(props);
             const [statusImg, elmTitle] = _getMsgStatus();
             if (numSel > 0) {
                 return (
                     <span className="lines-selection" title={elmTitle}>
                         {'\u00A0'}
-                        <a key="numItems" className="util-button" onClick={_selectMenuTriggerHandler}>
+                        (<a key="numItems" onClick={_selectMenuTriggerHandler}>
                         <span className="value">{numSel}</span>
                         {'\u00A0'}{he.translate('concview__num_sel_lines')}</a>
+                        )
                         {statusImg ?
                             <img src={statusImg} alt="" title="" /> : null}
                     </span>
@@ -262,45 +257,27 @@ export function init({
             <S.LineSelectionOps>
                 {he.translate('concview__line_sel')}:{'\u00A0'}
                 <select className="selection-mode-switch"
-                        disabled={state.isLocked}
+                        disabled={props.isLocked}
                         onChange={_selectChangeHandler}
-                        defaultValue={LineSelectionModel.actualSelection(state).mode}>
+                        defaultValue={LineSelectionModel.actualSelection(props).mode}>
                     <option value="simple">{he.translate('concview__line_sel_simple')}</option>
                     <option value="groups">{he.translate('concview__line_sel_groups')}</option>
                 </select>
                 {_renderNumSelected()}
                 {props.visible ?
                     <LineSelectionMenu
-                            mode={LineSelectionModel.actualSelection(state).mode}
-                            isBusy={state.isBusy}
-                            isLocked={state.isLocked}
+                            mode={LineSelectionModel.actualSelection(props).mode}
+                            isBusy={props.isBusy}
+                            isLocked={props.isLocked}
                             onCloseClick={_closeMenuHandler}
-                            canSendEmail={!!state.emailDialogCredentials}
-                            corpusId={state.corpusId} />
+                            canSendEmail={!!props.emailDialogCredentials}
+                            corpusId={props.corpusId} />
                     :  null}
-                {props.hasNonUniqueKWICs ?
-                    <>
-                        <span className="separ">|</span>
-                        <layoutViews.Abbreviation
-                            hideLabelInDescription={true}
-                            value={he.translate('concview__non_uniq_kwic_label')}
-                            customStyle={{maxWidth: '20em'}}>
-                                {he.translateRich(
-                                    'concview__non_uniq_kwic_warn',
-                                    {
-                                        strong: (chunks) => <strong>{chunks}</strong>,
-                                        code: (chunks) => <code>{chunks}</code>,
-                                        p: (chunks) => <p>{chunks}</p>
-                                    }
-                                )}
-                        </layoutViews.Abbreviation>
-                        <layoutViews.StatusIcon status='warning' htmlClass='kwic-warning' />
-                    </> :
-                    null
-                }
             </S.LineSelectionOps>
         );
     }
+
+    const LineSelectionOps = BoundWithProps<LineSelectionOpsProps, LineSelectionModelState>(_LineSelectionOps, lineSelectionModel);
 
     // ------------------------- <ShareConcordanceWidget /> ----------------
 
@@ -512,31 +489,6 @@ export function init({
 
     const BoundConcSummary = Bound<ConcSummaryModelState>(ConcSummary, concSummaryModel)
 
-    // ------------------------- <AuxColumnSwitcher /> ----------------------------
-
-    const AuxColumnSwitcher:React.FC<{
-        value:number;
-    }> = ({value}) => {
-
-        const changeWidth = (width:number|Array<number>) => {
-            dispatcher.dispatch(
-                ViewOptionsActions.GeneralChangeRefMaxWidthAndSubmit,
-                {
-                    value: width
-                }
-            );
-        }
-
-        return (
-            <S.AuxColumnSwitcher>
-                <span className="label" aria-label={he.translate('concview__aux_column_width')} id="left-column-width-slider">
-                    {he.translate('concview__aux_column_width')}:{'\u00a0'}
-                </span>
-                <Slider onChange={changeWidth} defaultValue={value} ariaLabelledByForHandle="left-column-width-slider" />
-            </S.AuxColumnSwitcher>
-        )
-    };
-
 
     // ------------------------- <ConcToolbarWrapper /> ---------------------------
 
@@ -545,26 +497,19 @@ export function init({
         viewMode:ViewOptions.AttrViewMode;
         lineSelOpsVisible:boolean;
         numLinesInLockedGroups:number;
-        refMaxWidth:number;
         sortIdx:Array<{page:number; label:string}>;
     }
 
-    const ConcToolbarWrapper:React.FC<ConcToolbarWrapperProps> = (props) => {
+    const _ConcToolbarWrapper:React.FC<ConcToolbarWrapperProps & LineSelectionModelState> = (props) => (
+        <S.ConcToolbarWrapper>
+            <LineSelectionOps
+                    visible={props.lineSelOpsVisible}
+                    numLinesInLockedGroups={props.numLinesInLockedGroups} />
+            <paginationViews.Paginator SortIdx={props.sortIdx} />
+        </S.ConcToolbarWrapper>
+    );
 
-        const state = useModel(lineViewModel);
-
-        return (
-            <S.ConcToolbarWrapper>
-                <AuxColumnSwitcher value={props.refMaxWidth} />
-                <span className="separ">|</span>
-                <LineSelectionOps
-                        visible={props.lineSelOpsVisible}
-                        numLinesInLockedGroups={props.numLinesInLockedGroups}
-                        hasNonUniqueKWICs={state.hasNonUniqueKWICs} />
-                <paginationViews.Paginator SortIdx={props.sortIdx} />
-            </S.ConcToolbarWrapper>
-        );
-    };
+    const ConcToolbarWrapper = BoundWithProps<ConcToolbarWrapperProps, LineSelectionModelState>(_ConcToolbarWrapper, lineSelectionModel);
 
     // ------------------------- <AnonymousUserLoginPopup /> ---------------------------
 
@@ -611,6 +556,63 @@ export function init({
             </layoutViews.PopupBox>
         </layoutViews.ModalOverlay>
     );
+
+    // ------------------------- <AttrMismatchModal /> --------------------
+
+    const AttrMismatchModal:React.FC<{
+        attrs:Array<string>;
+    }> = ({attrs}) => {
+
+        React.useEffect(
+            () => {
+                dispatcher.dispatch(
+                    ViewOptionsActions.LoadDataInBackground
+                )
+            },
+            []
+        );
+
+        const onCloseClick = () => {
+            dispatcher.dispatch(
+                Actions.CloseAlignAttrsMismatchModal
+            );
+        };
+
+        const onOKClick = () => {
+            dispatcher.dispatch(
+                ViewOptionsActions.UnsetAttributesAndSave,
+                {
+                    attrs
+                }
+            )
+        };
+
+        return (
+            <layoutViews.ModalOverlay onCloseKey={onCloseClick}>
+                <layoutViews.CloseableFrame onCloseClick={onCloseClick}
+                        label={he.translate('concview__attr_selection_problem')}>
+                    <S.AttrMismatchModalContents>
+                        <p>
+                            {he.translate('concview__attr_sel_mismatch_desc')}:
+                        </p>
+                        <p className="attr-list">
+                            <strong>{attrs.join(', ')}</strong>
+                        </p>
+
+                        <p>{he.translate('concview__attr_sel_mismatch_question')}</p>
+                        <p className="buttons">
+                            <button type="button" className="util-button" onClick={onOKClick}>
+                                {he.translate('global__ok')}
+                            </button>
+                            <button type="button" className="util-button cancel" onClick={onCloseClick}>
+                                {he.translate('global__cancel')}
+                            </button>
+                        </p>
+                    </S.AttrMismatchModalContents>
+                </layoutViews.CloseableFrame>
+            </layoutViews.ModalOverlay>
+        );
+    };
 
     // ------------------------- <WaitingForConc /> ----------------------------
 
@@ -669,67 +671,6 @@ export function init({
         );
     }
 
-    // -------------- <ConcHints /> --------------------------------------------
-
-    const ConcHints:React.FC = (props) => {
-
-        const state = useModel(usageTipsModel);
-
-        const clickHandler = () => {
-            dispatcher.dispatch(
-                HintActions.NextConcHint,
-            );
-        };
-
-        const hideClickHandler = () => {
-            dispatcher.dispatch(
-                HintActions.ToggleConcHints
-            );
-        };
-
-        const hints = state.currentHints[UsageTipCategory.CONCORDANCE];
-
-        return (
-            <S.ConcHints className={state.concHintsVisible ? null : 'collapsed'}>
-                {state.concHintsVisible ?
-                    <>
-                        <div className="hint">
-                            <div className="tip">
-                                {state.forcedTip ?
-                                    '\u203C\u00a0' + he.translate('global__advice') :
-                                    he.translate('global__tip')
-                                }
-                            </div>
-                            <div>
-                            {state.forcedTip ?
-                                state.forcedTip.message :
-                                pipe(
-                                    Array.isArray(hints) ? hints : [hints],
-                                    List.map((hint, i) => <React.Fragment key={`hint:${i}}`}>{hint}</React.Fragment>)
-                                )
-                            }
-                            </div>
-                        </div>
-                        <div className="next-hint">
-                            (
-                            <a onClick={clickHandler}>
-                                {he.translate('global__next_tip')}
-                            </a>{'\u00a0'}/{'\u00a0'}
-                            <a onClick={hideClickHandler}>
-                                {he.translate('global__hide_tips')}
-                            </a>
-                            )
-                        </div>
-                    </> :
-                    <a className="switch" onClick={hideClickHandler}>
-                        <img src={he.createStaticUrl('img/lightbulb-blue.svg')} />
-                        <div className="tip">{he.translate('global__tip')}</div>
-                    </a>
-                }
-            </S.ConcHints>
-        );
-    };
-
     // ------------------------- <ConcordanceView /> ---------------------------
 
     const ConcordanceView:React.FC<
@@ -767,8 +708,27 @@ export function init({
             });
         };
 
+        const handleVideoPopupCloseClick = () => {
+            dispatcher.dispatch<typeof Actions.CloseVideoPopup>({
+                name: Actions.CloseVideoPopup.name
+            });
+        };
+
+        const alignNonMatchingAttrs = () => {
+            return pipe(
+                props.mergedAttrs,
+                List.filter(
+                    ([item, _]) => List.findIndex(
+                        item2 => item === item2, props.alignCommonPosAttrs) === -1
+                ),
+                List.map(([item, _]) => item)
+            );
+        };
+
         return (
             <S.ConcordanceView>
+                {props.alignAttrsMismatchModalVisible ?
+                    <AttrMismatchModal attrs={alignNonMatchingAttrs()}  /> : null}
                 {props.syntaxViewVisible ?
                     <SyntaxViewPane onCloseClick={handleSyntaxBoxClose} /> : null}
                 {props.kwicDetailVisible ?
@@ -778,6 +738,12 @@ export function init({
                     : null}
                 {props.refDetailVisible ?
                     <concDetailViews.RefDetail closeClickHandler={handleRefsDetailCloseClick} />
+                    : null}
+                {props.videoPopupVisible && props.videoPopupUrl ?
+                    <concDetailViews.VideoPopup 
+                        videoUrl={props.videoPopupUrl}
+                        startSeconds={props.videoPopupStartSeconds}
+                        closeClickHandler={handleVideoPopupCloseClick} />
                     : null}
                 <S.ConcTopBar>
                     <div className="info-level">
@@ -791,12 +757,7 @@ export function init({
                             canSendEmail={props.canSendEmail}
                             numLinesInLockedGroups={props.numItemsInLockedGroups}
                             viewMode={props.attrViewMode}
-                            sortIdx={props.SortIdx}
-                            refMaxWidth={props.refMaxWidth}
-                             />
-                    <div className="aux-col-control">
-                        <ConcHints />
-                    </div>
+                            sortIdx={props.SortIdx} />
                     {props.showAnonymousUserWarn && props.anonymousUserConcLoginPrompt ?
                         <AnonymousUserLoginPopup onCloseClick={handleAnonymousUserWarning} /> : null}
                 </S.ConcTopBar>
@@ -806,7 +767,7 @@ export function init({
                             busyWaitSecs={props.busyWaitSecs}
                             treatAsSlowQuery={props.treatAsSlowQuery}
                             alternativeCorpus={props.altCorpus} /> :
-                        <linesViews.ConcLines />
+                        <linesViews.ConcLines {...props} />
                     }
                 </S.ConclinesWrapper>
                 <S.ConcBottomBar>

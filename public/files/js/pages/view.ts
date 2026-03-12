@@ -355,7 +355,7 @@ export class ViewPage {
     ):void {
         this.queryModels.queryHintModel = new UsageTipsModel(
             this.layoutModel.dispatcher,
-            this.layoutModel.translateRich.bind(this.layoutModel)
+            this.layoutModel.translate.bind(this.layoutModel)
         );
         this.queryModels.withinBuilderModel = new WithinBuilderModel(
             this.layoutModel.dispatcher,
@@ -438,7 +438,7 @@ export class ViewPage {
                 Dict.fromEntries()
             ),
             concViewPosAttrs: this.layoutModel.getConf<ConcServerArgs>('currentArgs').attrs,
-            alignCommonPosAttrs: this.layoutModel.getConf<Kontext.AlignCommonPosAttrs>('AlignCommonPosAttrs'),
+            alignCommonPosAttrs: this.layoutModel.getConf<Array<string>>('AlignCommonPosAttrs'),
             concPreflight: this.layoutModel.getConf<Kontext.PreflightConf|null>('concPreflight'),
             bibIdAttr: ttData.bib_id_attr
         };
@@ -977,7 +977,6 @@ export class ViewPage {
             RefMaxWidth: this.layoutModel.getConcArgs().ref_max_width,
             AttrViewMode: this.layoutModel.getConf<ViewOptions.AttrViewMode>('AttrViewMode'),
             ShowLineNumbers: this.layoutModel.getConf<boolean>('ShowLineNumbers'),
-            FixedAuxColums: this.layoutModel.getConf<boolean>('FixedAuxColums'),
             KWICCorps: this.layoutModel.getConf<Array<string>>('KWICCorps'),
             CorporaColumns: List.map(
                 v => ({n: v.n, label: v.label, visible: true}),
@@ -1013,7 +1012,7 @@ export class ViewPage {
             ),
             mergedAttrs: this.layoutModel.getConf<Array<[string, number]>>('MergedAttrs'),
             mergedCtxAttrs: this.layoutModel.getConf<Array<[string, number]>>('MergedCtxAttrs'),
-            alignCommonPosAttrs: this.layoutModel.getConf<Kontext.AlignCommonPosAttrs>('AlignCommonPosAttrs'),
+            alignCommonPosAttrs: this.layoutModel.getConf<Array<string>>('AlignCommonPosAttrs'),
             TreatAsSlowQuery: treatAsSlow,
             AltCorpus: altCorpus,
         };
@@ -1024,7 +1023,7 @@ export class ViewPage {
 
         this.viewModels.usageTipsModel = new UsageTipsModel(
             this.layoutModel.dispatcher,
-            this.layoutModel.translateRich.bind(this.layoutModel)
+            s => this.layoutModel.translate(s)
         );
 
         const lineSelStorage:ConcLinesStorage<LineSelectionModelState> = openStorage(
@@ -1123,13 +1122,13 @@ export class ViewPage {
         return lineViewProps;
     }
 
-    setDownloadLink(name:string, format:string, urlConstructor:(taskId:string) => string, args?:any) {
+    setDownloadLink(name:string, format:string, url:string, args?:any) {
         this.layoutModel.bgDownload({
             name,
             format,
             datasetType: DownloadType.CONCORDANCE,
             contentType: 'text/plain',
-            urlConstructor,
+            url,
             args,
         }).subscribe();
     }

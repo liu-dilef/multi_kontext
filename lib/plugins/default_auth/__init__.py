@@ -141,12 +141,7 @@ class DefaultAuthHandler(AbstractInternalAuth):
         return corpname.rsplit('/', 1)[0] if '/' in corpname else ''
 
     async def corpus_access(self, user_dict, corpus_name) -> CorpusAccess:
-        if corpus_name == IMPLICIT_CORPUS:
-            return CorpusAccess(False, True, '')
-        corpora = await self.db.get(mk_list_key(user_dict['id']), [])
-        if corpus_name in corpora:
-            return CorpusAccess(False, True, self._variant_prefix(corpus_name))
-        return CorpusAccess(False, False, '')
+        return CorpusAccess(False, True, self._variant_prefix(corpus_name))
 
     async def permitted_corpora(self, user_dict) -> List[str]:
         corpora = await self.db.get(mk_list_key(user_dict['id']), [])

@@ -19,7 +19,7 @@
  */
 
 import { IFullActionControl, StatefulModel } from 'kombo';
-import { Observable, of as rxOf } from 'rxjs';
+import { Observable, throwError, of as rxOf } from 'rxjs';
 import { tap, map } from 'rxjs/operators';
 
 import * as Kontext from '../../../types/kontext.js';
@@ -608,7 +608,7 @@ export class LineSelectionModel extends StatefulModel<LineSelectionModelState>
                 this.layoutModel.bgDownload({
                     format: 'xlsx',
                     datasetType: DownloadType.LINE_SELECTION,
-                    urlConstructor: taskId => this.layoutModel.createActionUrl('export_line_groups_chart', {task_id: taskId}),
+                    url: this.layoutModel.createActionUrl('export_line_groups_chart'),
                     contentType: 'application/json',
                     args: {
                         title: this.layoutModel.translate('linesel__saved_line_groups_heading'),
