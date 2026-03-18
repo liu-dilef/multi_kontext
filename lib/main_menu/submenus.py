@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from .model import (
-    AbstractMenuItem, ConcMenuItem, EventTriggeringItem, MainMenu,
+    AbstractMenuItem, ConcMenuItem, EventTriggeringItem, HideOnCustomCondItem, MainMenu,
     MenuItemInternal, OutData)
 
 
@@ -28,7 +28,7 @@ def _create_archive_conc_item(args):
     return EventTriggeringItem(
         MainMenu.CONCORDANCE('archive-conc'),
         'Permanent link', 'MAIN_MENU_MAKE_CONC_LINK_PERSISTENT'
-    ).mark_indirect().enable_if(lambda d: d.get('user_owns_conc', False))
+    ).mark_indirect().enable_if(lambda d: d.get('user_owns_conc', False) and not d.get('user_is_anonymous', True))
 
 
 @dataclass
@@ -121,12 +121,12 @@ class Corpora:
         ).mark_indirect()
     )
 
-    my_subcorpora: MenuItemInternal = field(
-        default_factory=lambda: lambda args: MenuItemInternal(
+    my_subcorpora: HideOnCustomCondItem = field(
+        default_factory=lambda: lambda args: HideOnCustomCondItem(
             MainMenu.CORPORA('my-subcorpora'), 'My subcorpora', 'subcorpus/list'
         ).add_args(
             ('corpname', args['corpname'])
-        ).mark_indirect()
+        ).mark_indirect().enable_if(lambda d: not d.get('user_is_anonymous', True))
     )
 
     public_subcorpora: MenuItemInternal = field(
@@ -134,12 +134,12 @@ class Corpora:
             MainMenu.CORPORA('public-subcorpora'), 'Public subcorpora', 'subcorpus/list_published')
     )
 
-    create_subcorpus: Callable[[OutData], MenuItemInternal] = field(
-        default_factory=lambda: lambda args: MenuItemInternal(
+    create_subcorpus: Callable[[OutData], HideOnCustomCondItem] = field(
+        default_factory=lambda: lambda args: HideOnCustomCondItem(
             MainMenu.CORPORA('create-subcorpus'), 'Create new subcorpus', 'subcorpus/new'
         ).add_args(
             ('corpname', args['corpname'])
-        ).mark_indirect()
+        ).mark_indirect().enable_if(lambda d: not d.get('user_is_anonymous', True))
     )
 
 

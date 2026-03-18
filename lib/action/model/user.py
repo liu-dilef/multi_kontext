@@ -401,6 +401,7 @@ class UserActionModel(BaseActionModel, AbstractUserModel):
         result['base_attr'] = BaseActionModel.BASE_ATTR
         result['user_info'] = self._req.ctx.session.get('user', {'fullname': None})
         result['_anonymous'] = self.user_is_anonymous()
+        result['user_is_anonymous'] = self.user_is_anonymous()
         result['anonymous_user_conc_login_prompt'] = settings.get_bool(
             'global', 'anonymous_user_conc_login_prompt', False)
         result['supports_password_change'] = self.uses_internal_user_pages()
