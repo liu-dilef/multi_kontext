@@ -376,8 +376,10 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
                         if (docUrlRef && docUrlRef.val) {
                             const urlVal = docUrlRef.val;
                             const isYoutube = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/i.test(urlVal);
+                            const isVideo = /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(urlVal);
+                            const isAudio = /\.(mp3|wav|ogg|m4a|aac|flac|opus)$/i.test(urlVal);
                             
-                            if (isYoutube) {
+                            if (isYoutube || isVideo || isAudio) {
                                 setVideoUrl(urlVal);
                                 
                                 if (timeStartRef && timeStartRef.val) {

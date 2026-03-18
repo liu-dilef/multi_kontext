@@ -33,8 +33,21 @@ import * as S from './style.js';
 import { AudioPlayerModel } from '../../../models/audioPlayer/model.js';
 
 const YOUTUBE_RE = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/i;
+const VIDEO_EXT_RE = /\.(mp4|webm|ogg|mov|avi|mkv)$/i;
+const AUDIO_EXT_RE = /\.(mp3|wav|ogg|m4a|aac|flac|opus)$/i;
 
 const isYoutubeUrl = (url:string) => YOUTUBE_RE.test(url);
+const isVideoFile = (url:string) => VIDEO_EXT_RE.test(url);
+const isAudioFile = (url:string) => AUDIO_EXT_RE.test(url);
+
+type MediaType = 'youtube' | 'video' | 'audio' | 'unknown';
+
+const detectMediaType = (url:string):MediaType => {
+    if (isYoutubeUrl(url)) return 'youtube';
+    if (isVideoFile(url)) return 'video';
+    if (isAudioFile(url)) return 'audio';
+    return 'unknown';
+};
 
 const parseStartSeconds = (raw:string):number|null => {
     if (!raw) {
@@ -85,8 +98,8 @@ const extractVideoInfo = (data:Array<[RefsColumn, RefsColumn]>) => {
         c => {
             const n = c.name.toLowerCase();
             const looksLikeDocUrl = n === 'doc.url' || n === 'url' || (n.indexOf('doc') > -1 && n.indexOf('url') > -1);
-            const looksLikeVideoExt = /\.(mp4|webm|ogg)$/i.test(c.val);
-            return looksLikeDocUrl || looksLikeVideoExt || isYoutubeUrl(c.val);
+            const mediaType = detectMediaType(c.val);
+            return looksLikeDocUrl || mediaType !== 'unknown';
         },
         cols
     )?.val || null;
@@ -180,10 +193,10 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
 
     }> = (props) => {
         const isUrl = props.val.indexOf('http://') === 0 || props.val.indexOf('https://') === 0;
-        const hasVideoExt = /\.(mp4|webm|ogg)$/i.test(props.val);
-        const isVideo = props.forceVideo || (isUrl && (hasVideoExt || isYoutubeUrl(props.val)));
+        const mediaType = detectMediaType(props.val);
+        const isMedia = props.forceVideo || (isUrl && mediaType !== 'unknown');
 
-        if (isUrl && isVideo && props.onVideoClick) {
+        if (isUrl && isMedia && props.onVideoClick) {
             const handleClick:React.MouseEventHandler<HTMLAnchorElement> = (evt) => {
                 evt.preventDefault();
                 props.onVideoClick(props.val, props.startSeconds);
@@ -331,22 +344,41 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
                     {renderContents()}
                     {activeVideoUrl ?
                         <div className="video-player-popup">
-                            {isYoutubeUrl(activeVideoUrl) ?
-                                <iframe
-                                    src={exportYoutubeEmbedUrl(activeVideoUrl, startAt)}
-                                    style={{width: '100%', height: '60vh', border: 'none'}}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                /> :
-                                <video
-                                    key={activeVideoUrl}
-                                    ref={videoRef}
-                                    src={activeVideoUrl}
-                                    controls
-                                    autoPlay
-                                    style={{maxWidth: '100%', maxHeight: '60vh'}}
-                                />
-                            }
+                            {(() => {
+                                const mediaType = detectMediaType(activeVideoUrl);
+                                if (mediaType === 'youtube') {
+                                    return (
+                                        <iframe
+                                            src={exportYoutubeEmbedUrl(activeVideoUrl, startAt)}
+                                            style={{width: '100%', height: '60vh', border: 'none'}}
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        />
+                                    );
+                                } else if (mediaType === 'audio') {
+                                    return (
+                                        <audio
+                                            key={activeVideoUrl}
+                                            ref={videoRef}
+                                            src={activeVideoUrl}
+                                            controls
+                                            autoPlay
+                                            style={{width: '100%'}}
+                                        />
+                                    );
+                                } else {
+                                    return (
+                                        <video
+                                            key={activeVideoUrl}
+                                            ref={videoRef}
+                                            src={activeVideoUrl}
+                                            controls
+                                            autoPlay
+                                            style={{maxWidth: '100%', maxHeight: '60vh'}}
+                                        />
+                                    );
+                                }
+                            })()}
                         </div> :
                         null
                     }
@@ -728,7 +760,11 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
     // ------------------------- <VideoPopup /> ---------------------------
 
     const VideoPopup:React.FC<VideoPopupProps> = (props) => {
-        const [size, setSize] = React.useState({width: 640, height: 400});
+        const mediaType = detectMediaType(props.videoUrl);
+        const initialSize = mediaType === 'audio' 
+            ? {width: 500, height: 150} 
+            : {width: 640, height: 400};
+        const [size, setSize] = React.useState(initialSize);
         const [position, setPosition] = React.useState({x: 100, y: 100});
         const [isDragging, setIsDragging] = React.useState(false);
         const [isResizing, setIsResizing] = React.useState(false);
@@ -874,12 +910,51 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel, audioPla
                     />
                 </div>
                 <div style={{flex: 1, position: 'relative', minHeight: 0}}>
-                    <iframe
-                        src={exportYoutubeEmbedUrl(props.videoUrl, props.startSeconds)}
-                        style={{width: '100%', height: '100%', border: 'none'}}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                    />
+                    {(() => {
+                        const mediaType = detectMediaType(props.videoUrl);
+                        const videoRef = React.useRef<HTMLVideoElement|HTMLAudioElement>(null);
+                        
+                        React.useEffect(() => {
+                            if (videoRef.current && props.startSeconds !== null && props.startSeconds !== undefined) {
+                                videoRef.current.currentTime = props.startSeconds;
+                            }
+                        }, [props.videoUrl, props.startSeconds]);
+
+                        if (mediaType === 'youtube') {
+                            return (
+                                <iframe
+                                    src={exportYoutubeEmbedUrl(props.videoUrl, props.startSeconds)}
+                                    style={{width: '100%', height: '100%', border: 'none'}}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                />
+                            );
+                        } else if (mediaType === 'audio') {
+                            return (
+                                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '2em'}}>
+                                    <audio
+                                        key={props.videoUrl}
+                                        ref={videoRef as React.RefObject<HTMLAudioElement>}
+                                        src={props.videoUrl}
+                                        controls
+                                        autoPlay
+                                        style={{width: '100%'}}
+                                    />
+                                </div>
+                            );
+                        } else {
+                            return (
+                                <video
+                                    key={props.videoUrl}
+                                    ref={videoRef as React.RefObject<HTMLVideoElement>}
+                                    src={props.videoUrl}
+                                    controls
+                                    autoPlay
+                                    style={{width: '100%', height: '100%', objectFit: 'contain'}}
+                                />
+                            );
+                        }
+                    })()}
                 </div>
                 <div
                     onMouseDown={handleResizeMouseDown}
