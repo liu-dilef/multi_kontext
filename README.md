@@ -16,7 +16,7 @@ Multimodal corpora can be loaded into Multi-KonText by adding the following info
 
 **Example of vertical file with video source alignment**
 
->     <doc id="GDK563" speaker="W. Veltroni" url="https://www.youtube.com/watch?v=01wN9PMO_Yw">
+    <doc id="GDK563" speaker="W. Veltroni" url="https://www.youtube.com/watch?v=01wN9PMO_Yw">
     <time start='0.000'>
     Signor  NOUN    signore
     Presidente      NOUN    presidente
@@ -46,15 +46,15 @@ Multimodal corpora can be loaded into Multi-KonText by adding the following info
 
 **Example of Manatee registry file**
 
->     STRUCTURE doc {
+     STRUCTURE doc {
         ATTRIBUTE id
         ATTRIBUTE speaker
         ATTRIBUTE url
     }
 
-> STRUCTURE s
+    STRUCTURE s
 
->     STRUCTURE time {
+    STRUCTURE time {
         ATTRIBUTE start
     }
 
