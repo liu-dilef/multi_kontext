@@ -564,6 +564,8 @@
         "concview__save_form_incl_heading": "Include heading",
         "concview__save_form_incl_line_nums": "Include line numbers",
         "concview__save_form_align_kwic": "Align KWIC",
+        "concview__save_form_split_content_by_char": "Split content by char",
+        "global__split_char_required": "Split character is required when split by character is enabled",
         "concview__save_form_lines_to_store": "Lines to store",
         "concview__save_form_line_from": "From",
         "concview__save_form_line_to": "To",

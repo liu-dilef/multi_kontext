@@ -312,6 +312,18 @@ export class Actions {
         name: 'CONCORDANCE_SAVE_FORM_SET_FORMAT'
     };
 
+    static SaveFormSetSplitContentByChar:Action<{
+        value:boolean;
+    }> = {
+        name: 'CONCORDANCE_SAVE_FORM_SET_SPLIT_CONTENT_BY_CHAR'
+    };
+
+    static SaveFormSetSplitChar:Action<{
+        value:string;
+    }> = {
+        name: 'CONCORDANCE_SAVE_FORM_SET_SPLIT_CHAR'
+    };
+
     static ResultCloseSaveForm:Action<{}> = {
         name: 'CONCORDANCE_RESULT_CLOSE_SAVE_FORM'
     };

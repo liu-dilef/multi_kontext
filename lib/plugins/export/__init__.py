@@ -52,6 +52,36 @@ class UnknownExporterException(Exception):
 
 class AbstractConcExportMixin(object):
 
+    def _split_kwic_if_needed(self, lang_rows: List[Dict[str, str]], split_char: str) -> List[Dict[str, str]]:
+        """Split KWIC column content by specified character if enabled."""
+        if not split_char:
+            return lang_rows
+        
+        result = []
+        for lang_row in lang_rows:
+            new_row = dict(lang_row)
+            if 'kwic' in new_row:
+                kwic_content = new_row['kwic']
+                split_parts = kwic_content.split(split_char)
+                # Replace kwic with first part, add remaining parts as new columns
+                new_row['kwic'] = split_parts[0] if split_parts else ''
+                for i, part in enumerate(split_parts[1:], 1):
+                    new_row[f'kwic_split_{i}'] = part
+            result.append(new_row)
+        return result
+
+    def _calculate_max_split_columns(self, data_items: List[Any], split_char: str, get_content_fn) -> int:
+        """Calculate maximum number of split columns across all items."""
+        if not split_char or not data_items:
+            return 0
+        
+        max_splits = 0
+        for item in data_items:
+            content = get_content_fn(item)
+            split_parts = content.split(split_char)
+            max_splits = max(max_splits, len(split_parts) - 1)
+        return max_splits
+
     def _merge_conc_line_parts(self, items: List[Dict[str, Any]], merged_attrs: List[Tuple[str, int]], add_tail: bool = True) -> str:
         """
         converts a list of dicts of the format [{'class': u'col0 coll', 'str': u' \\u0159ekl'},
@@ -191,9 +221,20 @@ def lang_row_to_list(row):
     if 'ref' in row:
         for item in row['ref']:
             ans.append(item)
-    for key in ('left_context', 'kwic', 'right_context'):
-        if key in row:
-            ans.append(row[key])
+    # Handle left context
+    if 'left_context' in row:
+        ans.append(row['left_context'])
+    # Handle KWIC and any split columns
+    if 'kwic' in row:
+        ans.append(row['kwic'])
+        # Add any split KWIC columns in order
+        i = 1
+        while f'kwic_split_{i}' in row:
+            ans.append(row[f'kwic_split_{i}'])
+            i += 1
+    # Handle right context
+    if 'right_context' in row:
+        ans.append(row['right_context'])
     return ans
 
 

@@ -56,10 +56,12 @@ export interface CollServerArgs extends ConcServerArgs {
 
 export interface CollSaveServerArgs extends CollServerArgs {
     saveformat:DataSaveFormat;
-    colheaders:boolean;
-    heading:boolean;
+    colheaders:number;
+    heading:number;
+    split_content_by_char:number;
+    split_char:string;
     from_line:number;
-    to_line:number;
+    to_line?:number;
     csortfn:string;
 }
 

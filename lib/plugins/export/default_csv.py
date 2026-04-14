@@ -68,7 +68,12 @@ class CSVExport(AbstractExport):
         self._import_row = lambda x: x
 
     def _formatnumber(self, x):
-        return format_decimal(x, locale=self._locale, group_separator=False)
+        if x is None or x == '':
+            return ''
+        try:
+            return format_decimal(x, locale=self._locale, group_separator=False)
+        except Exception:
+            return str(x)
 
     def content_type(self):
         return 'text/csv'
@@ -93,6 +98,33 @@ class CSVExport(AbstractExport):
     async def write_conc(self, amodel: ConcActionModel, data: KwicPageData, args: SaveConcArgs):
         self._import_row = lang_row_to_list
 
+        # Determine keys first
+        if len(data.Lines) > 0:
+            if 'Left' in data.Lines[0]:
+                left_key, kwic_key, right_key = 'Left', 'Kwic', 'Right'
+            elif 'Sen_Left' in data.Lines[0]:
+                left_key, kwic_key, right_key = 'Sen_Left', 'Kwic', 'Sen_Right'
+            else:
+                raise ConcordanceQueryParamsError(amodel.translate('Invalid data'))
+        else:
+            left_key, kwic_key, right_key = 'Left', 'Kwic', 'Right'
+
+        # Validate split character
+        if args.split_content_by_char and not args.split_char:
+            raise ConcordanceQueryParamsError(amodel.translate('Split character cannot be empty'))
+
+        # Calculate number of split columns if splitting is enabled
+        num_split_cols = 0
+        if args.split_content_by_char and args.split_char and len(data.Lines) > 0:
+            # Calculate max split columns across all lines to ensure consistent column count
+            num_split_cols = self._calculate_max_split_columns(
+                data.Lines,
+                args.split_char,
+                lambda line: self._merge_conc_line_parts(
+                    line[kwic_key], data.merged_attrs, amodel.args.attr_vmode not in ['mouseover']
+                )
+            )
+
         if args.heading:
             self._writeheading([
                 'corpus: {}\nsubcorpus: {}\nconcordance size: {}\nARF: {}\nquery: {}'.format(
@@ -104,7 +136,7 @@ class CSVExport(AbstractExport):
                         f"{x.op}: {x.args} ({self._formatnumber(x.size)})"
                         for x in (await amodel.concdesc_json())
                     ),
-                ), '', '', ''])
+                ), '', '', ''] + [''] * num_split_cols)
             doc_struct = amodel.corp.get_conf('DOCSTRUCTURE')
             refs_args = [x.strip('=') for x in amodel.args.refs.split(',')]
             used_refs = [
@@ -113,15 +145,16 @@ class CSVExport(AbstractExport):
                 *[(x, x) for x in amodel.corp.get_structattrs()],
             ]
             used_refs = [x[1] for x in used_refs if x[0] in refs_args]
-            self._write_ref_headings(
-                [''] + used_refs if args.numbering else used_refs)
-
-        if 'Left' in data.Lines[0]:
-            left_key, kwic_key, right_key = 'Left', 'Kwic', 'Right'
-        elif 'Sen_Left' in data.Lines[0]:
-            left_key, kwic_key, right_key = 'Sen_Left', 'Kwic', 'Sen_Right'
-        else:
-            raise ConcordanceQueryParamsError(amodel.translate('Invalid data'))
+            # Add extra columns for split parts
+            base_headers = [''] + used_refs if args.numbering else used_refs
+            # Structure: [numbering?] + refs + left_context + kwic + [split_cols] + right_context
+            # We need to insert split columns after kwic, which comes after refs and left_context
+            if num_split_cols > 0:
+                # Build headers: base_headers (numbering + refs) + left + kwic + splits + right
+                ref_headers = base_headers + ['', ''] + [''] * num_split_cols + ['']
+            else:
+                ref_headers = base_headers + ['', '', '']
+            self._write_ref_headings(ref_headers)
 
         for row_num, line in enumerate(data.Lines, args.from_line):
             lang_rows = self._process_lang(
@@ -129,14 +162,55 @@ class CSVExport(AbstractExport):
             if 'Align' in line:
                 lang_rows += self._process_lang(
                     line['Align'], left_key, kwic_key, right_key, False, amodel.args.attr_vmode, data.merged_attrs, data.merged_ctxattrs)
+            
+            # Apply split if enabled and pad to max columns
+            if args.split_content_by_char and args.split_char:
+                lang_rows = self._split_kwic_if_needed(lang_rows, args.split_char)
+                # Pad rows to ensure consistent column count
+                for lang_row in lang_rows:
+                    for i in range(1, num_split_cols + 1):
+                        if f'kwic_split_{i}' not in lang_row:
+                            lang_row[f'kwic_split_{i}'] = ''
+            
             self._writerow(row_num + args.numbering_offset if args.numbering else None, *lang_rows)
 
     async def write_coll(self, amodel: ConcActionModel, data: CalculateCollsResult, args: SavecollArgs):
+        # Validate split character
+        if args.split_content_by_char and not args.split_char:
+            raise ConcordanceQueryParamsError(amodel.translate('Split character cannot be empty'))
+
+        # Calculate number of split columns if splitting is enabled
+        num_split_cols = 0
+        if args.split_content_by_char and args.split_char and len(data.Items) > 0:
+            # Calculate max split columns across all items to ensure consistent column count
+            num_split_cols = self._calculate_max_split_columns(
+                data.Items,
+                args.split_char,
+                lambda item: item['str']
+            )
+        
         if args.colheaders or args.heading:
-            self._writeheading([''] + [item['n'] for item in data.Head])
+            # Adjust headers for split columns
+            if num_split_cols > 0:
+                # First column is the collocation (split into multiple), then freq and stats
+                headers = [''] + [''] * num_split_cols + [item['n'] for item in data.Head]
+            else:
+                headers = [''] + [item['n'] for item in data.Head]
+            self._writeheading(headers)
+        
         for i, item in enumerate(data.Items, 1):
-            self._writerow(
-                i, (item['str'], self._formatnumber(item['freq']), *(self._formatnumber(stat['s']) for stat in item['Stats'])))
+            # Apply split if enabled
+            if args.split_content_by_char and args.split_char:
+                coll_str = item['str']
+                split_parts = coll_str.split(args.split_char)
+                # Pad to max columns to ensure consistent column count
+                while len(split_parts) - 1 < num_split_cols:
+                    split_parts.append('')
+                row_data = tuple(split_parts) + (self._formatnumber(item['freq']),) + tuple(self._formatnumber(stat['s']) for stat in item['Stats'])
+            else:
+                row_data = (item['str'], self._formatnumber(item['freq']), *(self._formatnumber(stat['s']) for stat in item['Stats']))
+            
+            self._writerow(i, row_data)
 
     async def write_freq(self, amodel: ConcActionModel, data: Dict[str, Any], args: SavefreqArgs):
         for block in data['Blocks']:

@@ -168,6 +168,55 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
         );
     };
 
+    // ------------------- <TRSplitContentByChar /> -------
+
+    const TRSplitContentByChar:React.FC<{
+        enabled:boolean;
+        splitChar:string;
+
+    }> = (props) => {
+
+        const handleCheckboxChange = () => {
+            dispatcher.dispatch<typeof Actions.SaveFormSetSplitContentByChar>({
+                name: Actions.SaveFormSetSplitContentByChar.name,
+                payload: {value: !props.enabled}
+            });
+        };
+
+        const handleCharInput = (evt) => {
+            dispatcher.dispatch<typeof Actions.SaveFormSetSplitChar>({
+                name: Actions.SaveFormSetSplitChar.name,
+                payload: {value: evt.target.value}
+            });
+        };
+
+        return (
+            <tr>
+                <th>
+                    <label htmlFor="split-content-checkbox">
+                        {he.translate('concview__save_form_split_content_by_char')}
+                        :{'\u00a0'}
+                    </label>
+                </th>
+                <td>
+                    <input id="split-content-checkbox" type="checkbox"
+                        onChange={handleCheckboxChange} checked={props.enabled} />
+                    {props.enabled ?
+                        <>
+                            {' '}
+                            <input type="text" value={props.splitChar}
+                                onChange={handleCharInput}
+                                maxLength={1}
+                                required={props.enabled}
+                                placeholder="|"
+                                style={{width: '2em', marginLeft: '0.5em'}} />
+                        </> : null
+                    }
+                </td>
+            </tr>
+        );
+    };
+
     // ------------------- <TRLineRangeInput /> -------
 
     const TRLineRangeInput:React.FC<{
@@ -242,9 +291,14 @@ export function init(dispatcher:IActionDispatcher, he:Kontext.ComponentHelpers, 
                         <TRIncludeHeadingCheckbox key="opt-ih" value={this.props.includeHeading} />
                 </>;
             case 'xml':
+                return <TRIncludeHeadingCheckbox key="opt-ih" value={this.props.includeHeading} />;
             case 'xlsx':
             case 'csv':
-                return <TRIncludeHeadingCheckbox key="opt-ih" value={this.props.includeHeading} />;
+                return <>
+                        <TRIncludeHeadingCheckbox key="opt-ih" value={this.props.includeHeading} />
+                        <TRSplitContentByChar key="opt-sc" enabled={this.props.splitContentByChar} 
+                            splitChar={this.props.splitChar} />
+                </>;
             default:
                 return null;
             }

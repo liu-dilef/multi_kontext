@@ -45,6 +45,8 @@ export interface ConcSaveModelState {
     toLine:Kontext.FormValue<string>;
     alignKwic:boolean;
     includeLineNumbers:boolean;
+    splitContentByChar:boolean;
+    splitChar:string;
     concSize:number;
 }
 
@@ -68,6 +70,8 @@ export class ConcSaveModel extends StatefulModel<ConcSaveModelState> {
                 alignKwic: false,
                 includeLineNumbers: false,
                 includeHeading: false,
+                splitContentByChar: false,
+                splitChar: '',
                 concSize
             }
         );
@@ -150,6 +154,20 @@ export class ConcSaveModel extends StatefulModel<ConcSaveModelState> {
         );
 
         this.addActionHandler(
+            Actions.SaveFormSetSplitContentByChar,
+            action => {
+                this.changeState(state => {state.splitContentByChar = action.payload.value});
+            }
+        );
+
+        this.addActionHandler(
+            Actions.SaveFormSetSplitChar,
+            action => {
+                this.changeState(state => {state.splitChar = action.payload.value});
+            }
+        );
+
+        this.addActionHandler(
             Actions.SaveFormSubmit,
             action => {
                 const err = this.validateForm();
@@ -196,6 +214,10 @@ export class ConcSaveModel extends StatefulModel<ConcSaveModelState> {
             return Error(this.layoutModel.translate('concview__save_form_line_to_err_msg_{value1}{value2}',
                             {value1: parseInt(this.state.fromLine.value, 10) + 1, value2: this.state.concSize}));
         }
+
+        if (this.state.splitContentByChar && !this.state.splitChar) {
+            return Error(this.layoutModel.translate('global__split_char_required'));
+        }
     }
 
     private submit():void {
@@ -205,9 +227,11 @@ export class ConcSaveModel extends StatefulModel<ConcSaveModelState> {
             saveformat: this.state.saveformat,
             from_line: this.state.fromLine.value,
             to_line: this.state.toLine.value,
-            heading: this.state.includeHeading,
-            numbering: this.state.includeLineNumbers,
-            align_kwic: this.state.alignKwic
+            heading: this.state.includeHeading ? 1 : 0,
+            numbering: this.state.includeLineNumbers ? 1 : 0,
+            align_kwic: this.state.alignKwic ? 1 : 0,
+            split_content_by_char: this.state.splitContentByChar ? 1 : 0,
+            split_char: this.state.splitChar
         };
         this.saveLinkFn(
             undefined,

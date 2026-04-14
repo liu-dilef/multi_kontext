@@ -41,6 +41,8 @@ export interface CollResultsSaveModelState {
     includeHeading:boolean;
     fromLine:Kontext.FormValue<string>;
     toLine:Kontext.FormValue<string>;
+    splitContentByChar:boolean;
+    splitChar:string;
     quickSaveRowLimit:number;
     isBusy:boolean;
 }
@@ -67,6 +69,8 @@ export class CollResultsSaveModel extends StatelessModel<CollResultsSaveModelSta
                 toLine: {value: '', isInvalid: false, isRequired: true},
                 includeColHeaders: false,
                 includeHeading: false,
+                splitContentByChar: false,
+                splitChar: '',
                 quickSaveRowLimit,
                 isBusy: false
             }
@@ -140,13 +144,34 @@ export class CollResultsSaveModel extends StatelessModel<CollResultsSaveModelSta
             }
         );
 
+        this.addActionHandler<typeof Actions.SaveFormSetSplitContentByChar>(
+            Actions.SaveFormSetSplitContentByChar.name,
+            (state, action) => {
+                state.splitContentByChar = action.payload.value;
+            }
+        );
+
+        this.addActionHandler<typeof Actions.SaveFormSetSplitChar>(
+            Actions.SaveFormSetSplitChar.name,
+            (state, action) => {
+                state.splitChar = action.payload.value;
+            }
+        );
+
         this.addActionHandler<typeof Actions.SaveFormSubmit>(
             Actions.SaveFormSubmit.name,
             (state, action) => {
-                state.isBusy = true;
+                const err = this.validateForm(state);
+                if (err) {
+                    this.layoutModel.showMessage('error', err);
+                } else {
+                    state.isBusy = true;
+                }
             },
             (state, action) => {
-                this.submit(state);
+                if (state.isBusy) {
+                    this.submit(state);
+                }
             }
         );
 
@@ -175,6 +200,9 @@ export class CollResultsSaveModel extends StatelessModel<CollResultsSaveModelSta
             state.fromLine.isInvalid = true;
             return new Error(this.layoutModel.translate('freq__save_form_from_value_err_msg'));
         }
+        if (state.splitContentByChar && !state.splitChar) {
+            return new Error(this.layoutModel.translate('global__split_char_required'));
+        }
     }
 
     private validateNumberFormat(v:string, allowEmpty:boolean):boolean {
@@ -196,8 +224,10 @@ export class CollResultsSaveModel extends StatelessModel<CollResultsSaveModelSta
                     ...(action as typeof Actions.FormPrepareSubmitArgsDone).payload.args,
                     format: undefined, // cannot risk format=json and invalid http resp. headers
                     saveformat: state.saveformat,
-                    colheaders: state.includeColHeaders,
-                    heading: state.includeHeading,
+                    colheaders: state.includeColHeaders ? 1 : 0,
+                    heading: state.includeHeading ? 1 : 0,
+                    split_content_by_char: state.splitContentByChar ? 1 : 0,
+                    split_char: state.splitChar,
                     from_line: parseInt(state.fromLine.value),
                     to_line: state.toLine.value ?
                                 parseInt(state.toLine.value) :

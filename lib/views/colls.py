@@ -109,6 +109,8 @@ class SavecollArgs:
     heading: int = 0
     colheaders: int = 0
     csortfn: str = ''
+    split_content_by_char: int = 0
+    split_char: str = ''
 
 
 @bp.route('/savecoll')

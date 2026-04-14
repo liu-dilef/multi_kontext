@@ -1237,6 +1237,8 @@ class SaveConcArgs:
     align_kwic: int = 0
     from_line: int = 0
     to_line: IntOpt = -1
+    split_content_by_char: int = 0
+    split_char: str = ''
 
 
 def _get_ipm_base_set_desc(corp: AbstractKCorpus, contains_within, translate: Callable[[str], str]):

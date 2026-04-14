@@ -159,6 +159,18 @@ export class Actions {
         name: 'COLL_SAVE_FORM_SET_INCLUDE_HEADING'
     };
 
+    static SaveFormSetSplitContentByChar:Action<{
+        value:boolean;
+    }> = {
+        name: 'COLL_SAVE_FORM_SET_SPLIT_CONTENT_BY_CHAR'
+    };
+
+    static SaveFormSetSplitChar:Action<{
+        value:string;
+    }> = {
+        name: 'COLL_SAVE_FORM_SET_SPLIT_CHAR'
+    };
+
     static SaveFormSubmit:Action<{}> = {
         name: 'COLL_SAVE_FORM_SUBMIT'
     };
